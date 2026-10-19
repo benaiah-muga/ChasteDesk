@@ -11,7 +11,9 @@ import (
 
 	"chastedesk/internal/config"
 	"chastedesk/internal/db"
+	"chastedesk/internal/ingest"
 	"chastedesk/internal/logging"
+	"chastedesk/internal/queue"
 )
 
 func main() {
@@ -36,7 +38,14 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
-	logger.Info("worker started")
+	jobs := queue.New(pool)
+	handlers := ingest.Handlers(ingest.Deps{Pool: pool, UploadsDir: cfg.UploadsDir})
+	names := make([]string, 0, len(handlers))
+	for name, handler := range handlers {
+		jobs.Work(ctx, name, 2, handler)
+		names = append(names, name)
+	}
+	logger.Info("worker started", "queues", names)
 	<-ctx.Done()
 	logger.Info("worker stopped")
 	return nil

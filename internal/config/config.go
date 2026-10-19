@@ -24,6 +24,7 @@ type Config struct {
 	DatabaseURL string
 	AppSecret   string
 	LogLevel    string
+	UploadsDir  string
 }
 
 func Load() (Config, error) {
@@ -31,6 +32,7 @@ func Load() (Config, error) {
 		Port:        3000,
 		AppURL:      "http://localhost:3000",
 		LogLevel:    "info",
+		UploadsDir:  "data/uploads",
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		AppSecret:   os.Getenv("APP_SECRET"),
 	}
@@ -49,6 +51,9 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("config: invalid LOG_LEVEL %q", raw)
 		}
 		cfg.LogLevel = raw
+	}
+	if raw := os.Getenv("UPLOADS_DIR"); raw != "" {
+		cfg.UploadsDir = raw
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("config: DATABASE_URL is required")
