@@ -7,7 +7,11 @@
   "engines": {
     "node": ">=22"
   },
+  "description": "Self-hostable AI support desk. The Go application lives in cmd/ and internal/.",
   "scripts": {
+    "docs:check": "node scripts/docs-check.mjs",
+    "ui:screenshots": "node scripts/ui-screenshots.mjs",
+    "compose:smoke": "node scripts/compose-smoke.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",

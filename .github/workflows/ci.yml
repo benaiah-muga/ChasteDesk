@@ -5,17 +5,41 @@ on:
     branches: [main, go-migration]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
-      - name: gofmt
+      - name: Formatting
         run: test -z "$(gofmt -l .)"
-      - run: go vet ./...
-      - run: go build ./...
-      - run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Generated templates
+        run: go tool templ generate && test -z "$(git status --porcelain -- '*_templ.go')"
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test -p 1 -timeout 30m ./...
+      - name: Compose configuration
+        env:
+          APP_SECRET: ci-secret-that-is-long-enough-for-validation-123
+        run: docker compose config -q
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Documentation checks
+        run: node scripts/docs-check.mjs

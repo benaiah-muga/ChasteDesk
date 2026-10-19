@@ -2,9 +2,14 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -12,6 +17,7 @@ import (
 	"chastedesk/internal/db"
 	"chastedesk/internal/queue"
 	"chastedesk/internal/web"
+	"chastedesk/internal/widget"
 )
 
 type Server struct {
@@ -29,7 +35,9 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 		s.queue = queue.New(pool)
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /", s.handleRoot)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/ready", s.handleReady)
 	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
 	mux.HandleFunc("POST /api/auth/sign-up/email", s.handleSignUp)
 	mux.HandleFunc("POST /api/auth/sign-in/email", s.handleSignIn)
@@ -47,6 +55,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /api/widget/conversations", s.handleWidgetConversationCreate)
 	mux.HandleFunc("POST /api/widget/conversations/{id}/messages", s.handleWidgetMessageCreate)
 	mux.HandleFunc("GET /api/widget/conversations/{id}/stream", s.handleWidgetStream)
+	mux.HandleFunc("GET /api/widget/conversations/{id}/history", s.handleWidgetHistory)
 	mux.HandleFunc("POST /api/v1/conversations", s.handleAPIConversationCreate)
 	mux.HandleFunc("GET /api/v1/conversations", s.handleAPIConversationList)
 	mux.HandleFunc("PUT /api/v1/conversations", s.handleAPIConversationPost)
@@ -73,7 +82,12 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("GET /api/settings/widget", s.handleWidgetGet)
 	mux.HandleFunc("PUT /api/settings/widget", s.handleWidgetPut)
 	mux.HandleFunc("GET /api/settings/widget-token", s.handleWidgetToken)
-	mux.Handle("GET /static/", http.FileServerFS(web.Static))
+	mux.HandleFunc("GET /static/", s.handleStatic)
+	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/static/mark.svg", http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /setup", s.handleSetupPage)
+	mux.HandleFunc("POST /setup", s.handleSetupSubmit)
 	mux.HandleFunc("GET /login", s.handleLoginPage)
 	mux.HandleFunc("POST /login", s.handleLoginSubmit)
 	mux.HandleFunc("POST /logout", s.handleLogout)
@@ -81,7 +95,9 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /onboarding/provider", s.handleOnboardingProvider)
 	mux.HandleFunc("POST /onboarding/add", s.handleOnboardingAdd)
 	mux.HandleFunc("POST /onboarding/finish", s.handleOnboardingFinish)
+	mux.HandleFunc("GET /dashboard", s.handleOverviewPage)
 	mux.HandleFunc("GET /dashboard/knowledge", s.handleKnowledgePage)
+	mux.HandleFunc("GET /dashboard/knowledge/sources", s.handleKnowledgeSourcesPartial)
 	mux.HandleFunc("POST /dashboard/knowledge/add", s.handleKnowledgeAdd)
 	mux.HandleFunc("POST /dashboard/knowledge/scope", s.handleKnowledgeScope)
 	mux.HandleFunc("POST /dashboard/knowledge/delete", s.handleKnowledgeDelete)
@@ -91,25 +107,63 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /dashboard/settings/providers/test", s.handleSettingsProviderTest)
 	mux.HandleFunc("POST /dashboard/settings/providers/remove", s.handleSettingsProviderRemove)
 	mux.HandleFunc("POST /dashboard/settings/widget", s.handleSettingsWidgetSave)
+	mux.HandleFunc("POST /dashboard/settings/agent", s.handleSettingsAgentSave)
+	mux.HandleFunc("POST /dashboard/settings/api-keys", s.handleSettingsAPIKeyCreate)
+	mux.HandleFunc("POST /dashboard/settings/api-keys/revoke", s.handleSettingsAPIKeyRevoke)
+	mux.HandleFunc("POST /dashboard/settings/workspace", s.handleSettingsWorkspaceSave)
+	mux.HandleFunc("POST /dashboard/settings/account", s.handleSettingsAccountSave)
+	mux.HandleFunc("POST /dashboard/settings/invite", s.handleSettingsInviteCreate)
+	mux.HandleFunc("POST /dashboard/settings/invite/revoke", s.handleSettingsInviteRevoke)
+	mux.HandleFunc("GET /invite/{id}", s.handleInvitePage)
+	mux.HandleFunc("POST /invite/{id}", s.handleInviteSubmit)
 	mux.HandleFunc("GET /dashboard/inbox", s.handleInboxPage)
+	mux.HandleFunc("GET /dashboard/inbox/list", s.handleInboxListPartial)
 	mux.HandleFunc("GET /dashboard/inbox/{id}", s.handleInboxDetailPage)
+	mux.HandleFunc("GET /dashboard/inbox/{id}/live", s.handleInboxLivePartial)
 	mux.HandleFunc("POST /dashboard/inbox/action", s.handleInboxActionForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/reply", s.handleInboxReplyForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/resolve", s.handleInboxResolveForm)
+	mux.HandleFunc("POST /dashboard/inbox/{id}/assign", s.handleInboxAssignForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/copilot", s.handleInboxCopilotForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/copilot/send", s.handleInboxCopilotSendForm)
 	mux.HandleFunc("GET /dashboard/analytics", s.handleAnalyticsPage)
+	mux.HandleFunc("POST /dashboard/analytics/rollup", s.handleAnalyticsRollupPage)
 	mux.HandleFunc("GET /dashboard/audit", s.handleAuditPage)
+	mux.HandleFunc("GET /dashboard/audit/export", s.handleAuditExport)
+	mux.HandleFunc("GET /dashboard/customers", s.handleCustomersPage)
+	mux.HandleFunc("GET /dashboard/customers/{id}", s.handleCustomerDetailPage)
+	mux.HandleFunc("GET /dashboard/approvals", s.handleApprovalsPage)
+	mux.HandleFunc("GET /dashboard/account", s.handleAccountPage)
+	mux.HandleFunc("GET /api/", s.handleNotFound)
 	mux.HandleFunc("/", s.handleNotFound)
-	return s.withRequestLog(mux)
+	var handler http.Handler = mux
+	handler = s.withRequestLog(handler)
+	handler = s.withWidgetCORS(handler)
+	handler = s.withOriginCheck(handler)
+	handler = s.withSecurityHeaders(handler)
+	return handler
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	if err := s.pool.Ping(ctx); err != nil {
+		writeErrorBody(w, http.StatusServiceUnavailable, "not_ready", "database unavailable")
+		return
+	}
+	writeData(w, http.StatusOK, map[string]any{"ok": true, "database": "ok"})
+}
+
 func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	writeErrorBody(w, http.StatusNotFound, "not_found", "not found")
+	if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.Header.Get("Accept"), "application/json") {
+		writeErrorBody(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	s.renderPageError(w, r, http.StatusNotFound, "Off the desk", "That page does not exist. It may have moved, or the link may be old. The inbox is still where you left it.")
 }
 
 func (s *Server) withRequestLog(next http.Handler) http.Handler {
@@ -117,6 +171,87 @@ func (s *Server) withRequestLog(next http.Handler) http.Handler {
 		s.logger.Debug("request", "method", r.Method, "path", r.URL.Path)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) withSecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers := w.Header()
+		headers.Set("X-Content-Type-Options", "nosniff")
+		headers.Set("X-Frame-Options", "DENY")
+		headers.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		headers.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		headers.Set("Cross-Origin-Opener-Policy", "same-origin")
+		if strings.HasPrefix(s.cfg.AppURL, "https://") {
+			headers.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		headers.Set("Content-Security-Policy",
+			"default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; "+
+				"img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; "+
+				"script-src 'self'; connect-src 'self'; object-src 'none'; manifest-src 'self'")
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/dashboard") || path == "/onboarding" || path == "/login" || path == "/setup" {
+			headers.Set("Cache-Control", "no-store, max-age=0")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) withOriginCheck(next http.Handler) http.Handler {
+	appOrigin := ""
+	if parsed, err := url.Parse(s.cfg.AppURL); err == nil {
+		appOrigin = parsed.Scheme + "://" + parsed.Host
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/widget/") || strings.HasPrefix(r.URL.Path, "/api/v1/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" && origin != appOrigin {
+			writeErrorBody(w, http.StatusForbidden, "forbidden", "cross-origin request refused")
+			return
+		}
+		if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+			writeErrorBody(w, http.StatusForbidden, "forbidden", "cross-site request refused")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/")
+	if !strings.HasPrefix(path, "static/") {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := fs.ReadFile(web.Static, path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	switch {
+	case strings.HasSuffix(path, ".css"):
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case strings.HasSuffix(path, ".js"):
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	case strings.HasSuffix(path, ".svg"):
+		w.Header().Set("Content-Type", "image/svg+xml")
+	case strings.HasSuffix(path, ".woff2"):
+		w.Header().Set("Content-Type", "font/woff2")
+	case strings.HasSuffix(path, ".txt"):
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	}
+	if strings.Contains(path, "/fonts/") || strings.HasSuffix(path, "htmx.min.js") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+	}
+	_, _ = w.Write(data)
 }
 
 func writeData(w http.ResponseWriter, status int, data any) {
@@ -131,4 +266,38 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func writeErrorBody(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": message}})
+}
+
+func (s *Server) withWidgetCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/widget/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		origin := r.Header.Get("Origin")
+		allowed := false
+		if origin != "" && s.repo != nil {
+			token := r.URL.Query().Get("token")
+			if token == "" {
+				token = r.Header.Get("x-widget-token")
+			}
+			if payload, err := widget.VerifyAnyOrg(s.cfg.AppSecret, token); err == nil {
+				if config, err := s.repo.GetWidgetConfig(db.WithOrg(r.Context(), payload.OrgID)); err == nil && config != nil {
+					allowed = widget.OriginAllowed(origin, config.Origins)
+				}
+			}
+		}
+		if allowed {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Widget-Token")
+			w.Header().Set("Access-Control-Max-Age", "600")
+			w.Header().Add("Vary", "Origin")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

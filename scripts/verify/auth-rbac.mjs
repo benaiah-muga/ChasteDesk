@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Gate: role matrix — agent denied settings and audit, admin allowed, anonymous 401.
+// Gate: role matrix - agent denied settings and audit, admin allowed, anonymous 401.
 import { withEphemeralPg } from "./lib/ephemeral-pg.mjs";
 import { assert, ok } from "./lib/verify-kit.mjs";
 import { Jar, ensureWebBuilt, req, startWebApp } from "./lib/web-app.mjs";

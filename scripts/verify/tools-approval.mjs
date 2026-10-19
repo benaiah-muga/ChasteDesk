@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Gate: the approval lifecycle — approve executes with result, reject rejects,
+// Gate: the approval lifecycle - approve executes with result, reject rejects,
 // double decisions conflict, decider recorded.
 import { randomUUID } from "node:crypto";
 import { withEphemeralPg } from "./lib/ephemeral-pg.mjs";

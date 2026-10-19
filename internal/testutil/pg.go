@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -15,6 +17,9 @@ import (
 
 func StartEphemeralPG(t *testing.T) string {
 	t.Helper()
+	if base := os.Getenv("CHASTEDESK_TEST_DATABASE_URL"); base != "" {
+		return startTestDatabase(t, base)
+	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker not available")
 	}
@@ -49,7 +54,7 @@ func StartEphemeralPG(t *testing.T) string {
 		t.Fatal("could not determine mapped port")
 	}
 	dsn := fmt.Sprintf("postgresql://chastedesk:chastedesk@127.0.0.1:%s/chastedesk", hostPort)
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(120 * time.Second)
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		conn, err := pgx.Connect(ctx, dsn)
@@ -67,4 +72,35 @@ func StartEphemeralPG(t *testing.T) string {
 		time.Sleep(500 * time.Millisecond)
 	}
 	return dsn
+}
+
+func startTestDatabase(t *testing.T, base string) string {
+	t.Helper()
+	parsed, err := url.Parse(base)
+	if err != nil || parsed.Host == "" {
+		t.Fatalf("CHASTEDESK_TEST_DATABASE_URL is not a valid postgres URL")
+	}
+	name := fmt.Sprintf("chastedesk_test_%d_%08x", time.Now().UnixNano(), rand.Uint32())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	admin, err := pgx.Connect(ctx, base)
+	if err != nil {
+		t.Fatalf("connect to test database server: %v", err)
+	}
+	defer func() { _ = admin.Close(context.Background()) }()
+	if _, err := admin.Exec(ctx, `create database "`+name+`"`); err != nil {
+		t.Fatalf("create test database: %v", err)
+	}
+	t.Cleanup(func() {
+		dropCtx, dropCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer dropCancel()
+		conn, err := pgx.Connect(dropCtx, base)
+		if err != nil {
+			return
+		}
+		defer func() { _ = conn.Close(context.Background()) }()
+		_, _ = conn.Exec(dropCtx, `drop database if exists "`+name+`" with (force)`)
+	})
+	parsed.Path = "/" + name
+	return parsed.String()
 }

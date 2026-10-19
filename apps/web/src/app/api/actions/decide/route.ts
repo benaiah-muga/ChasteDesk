@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     await writeAudit(authed, { actorType: "user", actorId: authed.userId, type: "action.approved", targetType: "action", targetId: action.id, payload: {} }, db);
     const boss = await getBossSender();
     await boss.send(JOB_NAMES.executeAction, { orgId: authed.orgId, actionId: action.id }, { singletonKey: `action:${action.id}` });
-    await db.insert(messages).values({ orgId: authed.orgId, conversationId: action.conversationId, role: "system", content: "Action approved — executing." });
+    await db.insert(messages).values({ orgId: authed.orgId, conversationId: action.conversationId, role: "system", content: "Action approved - executing." });
     return okResponse({ status: "approved" });
   } catch (err) {
     return errorResponse(err);

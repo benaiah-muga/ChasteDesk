@@ -78,3 +78,48 @@ func (r *Repo) DecideAction(ctx RepoCtx, id, status, decidedBy string) (bool, er
 	}
 	return tag.RowsAffected() == 1, nil
 }
+
+type ApprovalRow struct {
+	ID             string
+	ConversationID string
+	ToolID         string
+	Args           json.RawMessage
+	Status         string
+	CreatedAt      time.Time
+	DecidedAt      *time.Time
+	CustomerName   *string
+	CustomerEmail  *string
+}
+
+func (r *Repo) ListApprovals(ctx RepoCtx, status string, limit int) ([]ApprovalRow, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	query := `select a.id::text, a.conversation_id::text, a.tool_id, a.args, a.status::text, a.created_at, a.decided_at,
+		cu.name, cu.email
+		from actions a
+		join conversations c on c.id = a.conversation_id and c.org_id = a.org_id
+		join customers cu on cu.id = c.customer_id
+		where a.org_id = $1`
+	args := []any{ctx.OrgID}
+	if status == "pending_approval" {
+		query += ` and a.status = 'pending_approval' order by a.created_at asc limit $2`
+	} else {
+		query += ` and a.status <> 'pending_approval' order by coalesce(a.decided_at, a.updated_at) desc limit $2`
+	}
+	args = append(args, limit)
+	rows, err := r.pool.Query(ctx.Ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ApprovalRow{}
+	for rows.Next() {
+		var row ApprovalRow
+		if err := rows.Scan(&row.ID, &row.ConversationID, &row.ToolID, &row.Args, &row.Status, &row.CreatedAt, &row.DecidedAt, &row.CustomerName, &row.CustomerEmail); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}

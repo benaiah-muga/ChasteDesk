@@ -19,22 +19,26 @@ var validLogLevels = map[string]bool{
 }
 
 type Config struct {
-	Port        int
-	AppURL      string
-	DatabaseURL string
-	AppSecret   string
-	LogLevel    string
-	UploadsDir  string
+	Port              int
+	AppURL            string
+	AppEnv            string
+	DatabaseURL       string
+	AppSecret         string
+	LogLevel          string
+	UploadsDir        string
+	WorkerConcurrency int
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		Port:        3000,
-		AppURL:      "http://localhost:3000",
-		LogLevel:    "info",
-		UploadsDir:  "data/uploads",
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		AppSecret:   os.Getenv("APP_SECRET"),
+		Port:              3000,
+		AppURL:            "http://localhost:3000",
+		AppEnv:            "development",
+		LogLevel:          "info",
+		UploadsDir:        "data/uploads",
+		WorkerConcurrency: 2,
+		DatabaseURL:       os.Getenv("DATABASE_URL"),
+		AppSecret:         os.Getenv("APP_SECRET"),
 	}
 	if raw := os.Getenv("PORT"); raw != "" {
 		port, err := strconv.Atoi(raw)
@@ -52,8 +56,23 @@ func Load() (Config, error) {
 		}
 		cfg.LogLevel = raw
 	}
+	if raw := os.Getenv("APP_ENV"); raw != "" {
+		switch raw {
+		case "development", "test", "production":
+			cfg.AppEnv = raw
+		default:
+			return Config{}, fmt.Errorf("config: invalid APP_ENV %q", raw)
+		}
+	}
 	if raw := os.Getenv("UPLOADS_DIR"); raw != "" {
 		cfg.UploadsDir = raw
+	}
+	if raw := os.Getenv("WORKER_CONCURRENCY"); raw != "" {
+		concurrency, err := strconv.Atoi(raw)
+		if err != nil || concurrency < 1 || concurrency > 64 {
+			return Config{}, fmt.Errorf("config: invalid WORKER_CONCURRENCY %q", raw)
+		}
+		cfg.WorkerConcurrency = concurrency
 	}
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("config: DATABASE_URL is required")

@@ -104,3 +104,25 @@ func (r *Repo) OrgExists(ctx context.Context) (bool, error) {
 	}
 	return exists, nil
 }
+
+func (r *Repo) UpdateUserName(ctx context.Context, userID, name string) error {
+	_, err := r.pool.Exec(ctx, `update "user" set name = $2, updated_at = now() where id = $1`, userID, name)
+	return err
+}
+
+func (r *Repo) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
+	tag, err := r.pool.Exec(ctx, `update account set password = $2, updated_at = now()
+		where user_id = $1 and provider_id = 'credential'`, userID, passwordHash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *Repo) DeleteOtherSessions(ctx context.Context, userID, keepTokenHash string) error {
+	_, err := r.pool.Exec(ctx, `delete from session where user_id = $1 and token <> $2`, userID, keepTokenHash)
+	return err
+}

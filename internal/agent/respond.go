@@ -153,21 +153,13 @@ func Respond(ctx context.Context, pool *pgxpool.Pool, appSecret string, engine *
 			return err
 		},
 	}
-	result, err := RunTurn(ctx, rc, policy, TurnInput{
+	if _, err := RunTurn(ctx, rc, policy, TurnInput{
 		CustomerMessage:     customerMessage,
 		History:             history,
 		Customer:            Customer{Name: customerName, Email: customerMail, Attributes: customerAttributes},
 		RecentConversations: recentConversations,
-	}, deps)
-	if err != nil {
+	}, deps); err != nil {
 		return err
-	}
-	if result.Outcome == "answered" {
-		if _, err := pool.Exec(ctx,
-			`update conversations set first_response_at = coalesce(first_response_at, now()), updated_at = now() where id = $1`,
-			data.ConversationID); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -218,7 +210,7 @@ func loadHistory(ctx context.Context, pool *pgxpool.Pool, conversationID string)
 
 func loadRecentConversations(ctx context.Context, pool *pgxpool.Pool, orgID, customerID, conversationID string) ([]string, error) {
 	rows, err := pool.Query(ctx,
-		`select to_char(created_at, 'YYYY-MM-DD') || ' — ' || coalesce(triage->>'summary', 'previous conversation') as line
+		`select to_char(created_at, 'YYYY-MM-DD') || ' - ' || coalesce(triage->>'summary', 'previous conversation') as line
 		   from conversations where org_id = $1 and customer_id = $2 and id <> $3 order by created_at desc limit 5`,
 		orgID, customerID, conversationID)
 	if err != nil {
@@ -281,8 +273,8 @@ func escalateWithoutProvider(ctx context.Context, pool *pgxpool.Pool, orgID, con
 		return err
 	}
 	handoff, err := json.Marshal(map[string]any{
-		"problem":             "No AI provider is configured yet — routing to a teammate.",
-		"recommendedNextStep": "Answer the customer — no AI provider is configured.",
+		"problem":             "No AI provider is configured yet. Routing to a teammate.",
+		"recommendedNextStep": "Answer the customer. No AI provider is configured.",
 		"customerContext":     map[string]any{},
 		"investigated":        []string{},
 		"evidence":            []string{},

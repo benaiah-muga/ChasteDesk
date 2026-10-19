@@ -101,7 +101,7 @@ func (s *Server) decideAction(ctx context.Context, orgID, userID, actionID, deci
 	}
 	if _, err := s.repo.Pool().Exec(ctx,
 		`insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'system', $3)`,
-		orgID, action.ConversationID, "Action approved — executing."); err != nil {
+		orgID, action.ConversationID, "Action approved. Executing."); err != nil {
 		return "", err
 	}
 	return "approved", nil

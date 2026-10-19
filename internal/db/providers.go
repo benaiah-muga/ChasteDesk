@@ -18,6 +18,7 @@ type ProviderRow struct {
 	Enabled     bool    `json:"enabled"`
 	KeyLast4    *string `json:"keyLast4"`
 	BaseURL     *string `json:"baseUrl"`
+	ModelCount  int     `json:"modelCount"`
 }
 
 type ProviderConfig struct {
@@ -99,7 +100,8 @@ func (r *Repo) DeleteProviderConfig(ctx RepoCtx, id string) (bool, error) {
 }
 
 func (r *Repo) ListProviders(ctx RepoCtx) ([]ProviderRow, error) {
-	rows, err := r.pool.Query(ctx.Ctx, `select id::text, provider_id, display_name, enabled, key_last4, base_url
+	rows, err := r.pool.Query(ctx.Ctx, `select id::text, provider_id, display_name, enabled, key_last4, base_url,
+		jsonb_array_length(coalesce(models_cache, '[]'::jsonb))
 		from provider_configs where org_id = $1 order by provider_id`, ctx.OrgID)
 	if err != nil {
 		return nil, err
@@ -108,7 +110,7 @@ func (r *Repo) ListProviders(ctx RepoCtx) ([]ProviderRow, error) {
 	out := []ProviderRow{}
 	for rows.Next() {
 		var p ProviderRow
-		if err := rows.Scan(&p.ID, &p.ProviderID, &p.DisplayName, &p.Enabled, &p.KeyLast4, &p.BaseURL); err != nil {
+		if err := rows.Scan(&p.ID, &p.ProviderID, &p.DisplayName, &p.Enabled, &p.KeyLast4, &p.BaseURL, &p.ModelCount); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -150,6 +152,53 @@ func (r *Repo) ListAuditEvents(ctx RepoCtx, typeFilter, q string, limit int) ([]
 			return nil, err
 		}
 		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) ListAuditEventsFiltered(ctx RepoCtx, typeFilter, actor, q string, beforeID int64, limit int) ([]AuditRow, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 5000 {
+		limit = 5000
+	}
+	rows, err := r.pool.Query(ctx.Ctx, `select id, type, actor_type, actor_id, target_type, target_id, payload, created_at
+		from audit_events
+		where org_id = $1
+		  and ($2 = '' or type = $2)
+		  and ($3 = '' or actor_type::text = $3 or actor_id ilike '%' || $3 || '%')
+		  and ($4 = '' or type ilike '%' || $4 || '%' or target_type ilike '%' || $4 || '%' or target_id ilike '%' || $4 || '%')
+		  and ($5 = 0 or id < $5)
+		order by id desc limit $6`, ctx.OrgID, typeFilter, actor, q, beforeID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AuditRow{}
+	for rows.Next() {
+		var a AuditRow
+		if err := rows.Scan(&a.ID, &a.Type, &a.ActorType, &a.ActorID, &a.TargetType, &a.TargetID, &a.Payload, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (r *Repo) AuditTypes(ctx RepoCtx) ([]string, error) {
+	rows, err := r.pool.Query(ctx.Ctx, `select distinct type from audit_events where org_id = $1 order by type`, ctx.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var eventType string
+		if err := rows.Scan(&eventType); err != nil {
+			return nil, err
+		}
+		out = append(out, eventType)
 	}
 	return out, rows.Err()
 }

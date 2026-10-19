@@ -37,3 +37,14 @@ func (r *Repo) UpsertWidgetConfig(ctx RepoCtx, origins []string, theme json.RawM
 		ctx.OrgID, origins, string(theme))
 	return err
 }
+
+func (r *Repo) UpsertWidgetConfigWithEnabled(ctx RepoCtx, origins []string, theme json.RawMessage, enabled bool) error {
+	if theme == nil {
+		theme = json.RawMessage(`{}`)
+	}
+	_, err := r.pool.Exec(ctx.Ctx, `insert into widget_configs (org_id, origins, theme, enabled)
+		values ($1, $2, $3::jsonb, $4)
+		on conflict (org_id) do update set origins = excluded.origins, theme = excluded.theme, enabled = excluded.enabled, updated_at = now()`,
+		ctx.OrgID, origins, string(theme), enabled)
+	return err
+}

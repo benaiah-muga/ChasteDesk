@@ -26,66 +26,6 @@ func (s *Server) publishConversationEvent(ctx context.Context, orgID, conversati
 	_, _ = s.pool.Exec(ctx, "select pg_notify($1, $2)", "chastedesk", string(payload))
 }
 
-type inboxListRow struct {
-	ID              string
-	Status          string
-	Channel         string
-	CreatedAt       time.Time
-	FirstResponseAt *time.Time
-	Handoff         []byte
-	CustomerName    *string
-	CustomerEmail   *string
-	UpdatedAt       time.Time
-}
-
-func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([]inboxListRow, error) {
-	args := []any{orgID}
-	filter := ""
-	if status != "" {
-		args = append(args, status)
-		filter = fmt.Sprintf(" and c.status = $%d", len(args))
-	}
-	rows, err := s.pool.Query(ctx,
-		`select c.id, c.status::text, c.channel::text, c.created_at, c.first_response_at, c.handoff, c.updated_at, cu.name, cu.email
-		   from conversations c join customers cu on cu.id = c.customer_id
-		  where c.org_id = $1`+filter+`
-		  order by c.updated_at desc limit 100`, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []inboxListRow{}
-	for rows.Next() {
-		var row inboxListRow
-		if err := rows.Scan(&row.ID, &row.Status, &row.Channel, &row.CreatedAt, &row.FirstResponseAt, &row.Handoff, &row.UpdatedAt, &row.CustomerName, &row.CustomerEmail); err != nil {
-			return nil, err
-		}
-		out = append(out, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	if q != "" {
-		needle := strings.ToLower(q)
-		filtered := make([]inboxListRow, 0, len(out))
-		for _, row := range out {
-			name := ""
-			if row.CustomerName != nil {
-				name = *row.CustomerName
-			}
-			email := ""
-			if row.CustomerEmail != nil {
-				email = *row.CustomerEmail
-			}
-			if strings.Contains(strings.ToLower(name), needle) || strings.Contains(strings.ToLower(email), needle) {
-				filtered = append(filtered, row)
-			}
-		}
-		out = filtered
-	}
-	return out, nil
-}
-
 func (s *Server) handleInboxConversations(w http.ResponseWriter, r *http.Request) {
 	sess, ok := s.requireCapability(w, r, auth.CapInboxUse)
 	if !ok {
@@ -129,6 +69,7 @@ type inboxConversationRow struct {
 	ResolvedAt      *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	AssignedName    string
 }
 
 func loadInboxConversation(ctx context.Context, queryer interface {
@@ -136,9 +77,12 @@ func loadInboxConversation(ctx context.Context, queryer interface {
 }, orgID, conversationID string) (inboxConversationRow, error) {
 	var row inboxConversationRow
 	err := queryer.QueryRow(ctx,
-		`select id, customer_id, status::text, channel::text, handoff, first_response_at, resolved_at, created_at, updated_at
-		   from conversations where id = $1 and org_id = $2`, conversationID, orgID).
-		Scan(&row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.Handoff, &row.FirstResponseAt, &row.ResolvedAt, &row.CreatedAt, &row.UpdatedAt)
+		`select c.id, c.customer_id, c.status::text, c.channel::text, c.handoff, c.first_response_at, c.resolved_at, c.created_at, c.updated_at,
+		        coalesce(au.name, '')
+		   from conversations c
+		   left join "user" au on au.id = c.assigned_user_id
+		   where c.id = $1 and c.org_id = $2`, conversationID, orgID).
+		Scan(&row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.Handoff, &row.FirstResponseAt, &row.ResolvedAt, &row.CreatedAt, &row.UpdatedAt, &row.AssignedName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return row, apperr.NotFound("conversation not found")
 	}
@@ -509,9 +453,9 @@ func (s *Server) copilotDraft(ctx context.Context, orgID, conversationID string)
 	}
 	paragraphs := []string{"Hi,"}
 	if len(lines) > 0 {
-		paragraphs = append(paragraphs, strings.Join(lines, "\n\n"), "These points come from our help docs — let me know if that solves it.")
+		paragraphs = append(paragraphs, strings.Join(lines, "\n\n"), "These points come from our help docs. Let me know if that solves it.")
 	} else {
-		paragraphs = append(paragraphs, "I checked our knowledge base but could not find a confident answer — a teammate will follow up shortly.")
+		paragraphs = append(paragraphs, "I checked our knowledge base but could not find a confident answer. A teammate will follow up shortly.")
 	}
 	return strings.Join(paragraphs, "\n\n"), citations, len(lines) > 0, nil
 }

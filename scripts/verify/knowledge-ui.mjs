@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Gate: a URL source added through the UI reaches ready state, persists its
-// scope toggle, and deletes cleanly — driven through a real browser.
+// scope toggle, and deletes cleanly - driven through a real browser.
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { chromium } from "@playwright/test";

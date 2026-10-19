@@ -1,33 +1,21 @@
 # syntax=docker/dockerfile:1
-# ChasteDesk web (Next.js dashboard + widget + API)
-FROM node:24-alpine AS deps
-WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json apps/web/
-COPY apps/worker/package.json apps/worker/
-COPY packages/db/package.json packages/db/
-COPY packages/ai/package.json packages/ai/
-COPY packages/retrieval/package.json packages/retrieval/
-COPY packages/shared/package.json packages/shared/
-COPY packages/ui/package.json packages/ui/
-RUN corepack enable && pnpm install --frozen-lockfile --prod=false
-
-FROM node:24-alpine AS build
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
-COPY --from=deps /app/packages ./packages
+# ChasteDesk web: Go HTTP server, HTMX dashboard, widget, and API.
+FROM golang:1.27-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN corepack enable && pnpm --filter @chastedesk/web build
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/chastedesk-web ./cmd/web \
+ && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/chastedesk-migrate ./cmd/migrate
 
-FROM node:24-alpine
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates tzdata wget \
+ && addgroup -S chastedesk && adduser -S -G chastedesk chastedesk
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/web/.next ./apps/web/.next
-COPY --from=build /app/apps/web/public ./apps/web/public
-COPY --from=build /app/apps/web/package.json ./apps/web/
-COPY --from=build /app/packages ./packages
-COPY --from=build /app/package.json ./package.json
+COPY --from=build /out/chastedesk-web /app/chastedesk-web
+COPY --from=build /out/chastedesk-migrate /app/chastedesk-migrate
+USER chastedesk
 EXPOSE 3000
-CMD ["node", "apps/web/node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=5 \
+  CMD wget -qO- http://127.0.0.1:3000/api/ready >/dev/null || exit 1
+ENTRYPOINT ["/app/chastedesk-web"]

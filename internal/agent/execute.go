@@ -81,7 +81,7 @@ func failAction(ctx context.Context, pool *pgxpool.Pool, action actionRecord, re
 	}
 	if _, err := pool.Exec(ctx,
 		`insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'system', $3)`,
-		action.OrgID, action.ConversationID, "The requested action could not be completed — escalating to a teammate."); err != nil {
+		action.OrgID, action.ConversationID, "The requested action could not be completed. Escalating to a teammate."); err != nil {
 		return err
 	}
 	_, err = pool.Exec(ctx,
@@ -153,11 +153,6 @@ func ExecuteApprovedAction(ctx context.Context, pool *pgxpool.Pool, engine *retr
 	if err != nil {
 		return err
 	}
-	if _, err := pool.Exec(ctx,
-		`update actions set status = 'executed', result = $2::jsonb, verification = $3::jsonb, updated_at = now() where id = $1`,
-		action.ID, string(encodedResult), string(encodedVerification)); err != nil {
-		return err
-	}
 	if err := auditAction(ctx, pool, action.OrgID, action.AgentID, "action.executed", action.ID, map[string]any{"ok": result.OK}); err != nil {
 		return err
 	}
@@ -169,9 +164,24 @@ func ExecuteApprovedAction(ctx context.Context, pool *pgxpool.Pool, engine *retr
 	if verification.Passed {
 		if _, err := pool.Exec(ctx,
 			`insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'agent_ai', $3)`,
-			action.OrgID, action.ConversationID, "Done — I've taken care of that for you."); err != nil {
+			action.OrgID, action.ConversationID, "Done. I have taken care of that for you."); err != nil {
 			return err
 		}
+	} else {
+		if _, err := pool.Exec(ctx,
+			`insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'system', $3)`,
+			action.OrgID, action.ConversationID, "The action was executed but could not be verified. A teammate will follow up."); err != nil {
+			return err
+		}
+		if _, err := pool.Exec(ctx,
+			`update conversations set status = 'awaiting_human', updated_at = now() where id = $1`, action.ConversationID); err != nil {
+			return err
+		}
+	}
+	if _, err := pool.Exec(ctx,
+		`update actions set status = 'executed', result = $2::jsonb, verification = $3::jsonb, updated_at = now() where id = $1`,
+		action.ID, string(encodedResult), string(encodedVerification)); err != nil {
+		return err
 	}
 	return nil
 }

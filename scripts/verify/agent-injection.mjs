@@ -88,7 +88,7 @@ await withEphemeralPg(async (pgx) => {
   }
   assert(refusalAudit.rows[0].c === 1, "injected tool attempt must be audited as refused");
 
-  // Positive control: the same tool, properly configured, executes — proving the
+  // Positive control: the same tool, properly configured, executes - proving the
   // harness detects execution when it happens.
   const res2 = await run([
     { text: null, finish: "tool_calls", toolCalls: [{ id: "c2", toolId: "delete_account", args: { confirm: true } }] },

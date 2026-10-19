@@ -69,7 +69,7 @@ export default function OnboardingPage() {
       <div className="stack">
         <section className="card" aria-label="Step provider">
           <h2>
-            Step 1 — Connect an AI provider{" "}
+            Step 1 - Connect an AI provider{" "}
             {status?.providerConfigured ? <span className="badge badge-success">done</span> : <span className="badge">pending</span>}
           </h2>
           <ProvidersCard />
@@ -77,10 +77,10 @@ export default function OnboardingPage() {
 
         <section className="card" aria-label="Step knowledge">
           <h2>
-            Step 2 — Add your first knowledge source{" "}
+            Step 2 - Add your first knowledge source{" "}
             {status?.knowledgeAdded ? <span className="badge badge-success">done</span> : <span className="badge">pending</span>}
           </h2>
-          <p className="muted">This can be a public help page — the AI will cite it when answering customers.</p>
+          <p className="muted">This can be a public help page - the AI will cite it when answering customers.</p>
           <div className="row">
             <input className="input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} aria-label="Knowledge URL" />
             <button className="btn" type="button" onClick={addKnowledge} disabled={busy}>
@@ -93,7 +93,7 @@ export default function OnboardingPage() {
         </section>
 
         <section className="card" aria-label="Step finish">
-          <h2>Step 3 — Finish</h2>
+          <h2>Step 3 - Finish</h2>
           <p className="muted">You can change everything later in settings. The AI only does what your resolution policy allows.</p>
           <button className="btn" type="button" onClick={finish} disabled={busy}>
             Finish setup

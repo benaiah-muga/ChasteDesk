@@ -37,9 +37,9 @@ export async function POST(req: Request) {
       "",
       lines.length
         ? lines.join("\n\n")
-        : "I checked our knowledge base but could not find a confident answer — a teammate will follow up shortly.",
+        : "I checked our knowledge base but could not find a confident answer - a teammate will follow up shortly.",
       "",
-      lines.length ? "These points come from our help docs — let me know if that solves it." : "",
+      lines.length ? "These points come from our help docs - let me know if that solves it." : "",
     ]
       .filter(Boolean)
       .join("\n");

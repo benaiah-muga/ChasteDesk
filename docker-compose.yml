@@ -1,62 +1,77 @@
+name: chastedesk
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: chastedesk
-      POSTGRES_PASSWORD: chastedesk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chastedesk}
       POSTGRES_DB: chastedesk
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chastedesk"]
+      test: ["CMD-SHELL", "pg_isready -U chastedesk -d chastedesk"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
 
   migrate:
-    image: chastedesk-worker:local
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
-    environment:
-      DATABASE_URL: postgresql://chastedesk:chastedesk@postgres:5432/chastedesk
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: ["node", "--import", "tsx", "packages/db/src/migrate-cli.ts"]
-
-  web:
-    image: chastedesk-web:local
     build:
       context: .
       dockerfile: Dockerfile.web
-    ports:
-      - "3000:3000"
+    image: chastedesk-web:local
+    entrypoint: ["/app/chastedesk-migrate"]
     environment:
-      DATABASE_URL: postgresql://chastedesk:chastedesk@postgres:5432/chastedesk
+      APP_ENV: production
+      DATABASE_URL: postgresql://chastedesk:${POSTGRES_PASSWORD:-chastedesk}@postgres:5432/chastedesk
       APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
-      APP_URL: ${APP_URL:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: chastedesk-web:local
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://chastedesk:${POSTGRES_PASSWORD:-chastedesk}@postgres:5432/chastedesk
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/ready >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 4s
+      start_period: 10s
+      retries: 6
 
   worker:
-    image: chastedesk-worker:local
     build:
       context: .
       dockerfile: Dockerfile.worker
+    image: chastedesk-worker:local
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://chastedesk:chastedesk@postgres:5432/chastedesk
+      APP_ENV: production
+      DATABASE_URL: postgresql://chastedesk:${POSTGRES_PASSWORD:-chastedesk}@postgres:5432/chastedesk
       APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
       UPLOADS_DIR: /data/uploads
     volumes:
       - uploads:/data/uploads
     depends_on:
-      postgres:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
 

@@ -39,7 +39,7 @@ export interface AgentTurnResult {
   error?: string;
 }
 
-const HOLDING_MESSAGE = "I'm checking with a teammate on this one — you'll hear from us shortly.";
+const HOLDING_MESSAGE = "I'm checking with a teammate on this one - you'll hear from us shortly.";
 
 export async function runAgentTurn(
   ctx: RunContext,

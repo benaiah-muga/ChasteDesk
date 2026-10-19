@@ -78,7 +78,10 @@ func (s *Server) saveProviderConfig(ctx context.Context, sess *auth.Session, bod
 	if !model.KnownProvider(body.ProviderID) {
 		return apperr.BadRequest("unknown provider")
 	}
-	if body.DisplayName == "" || len(body.DisplayName) > 100 {
+	if body.DisplayName == "" {
+		body.DisplayName = providerDefaultName(body.ProviderID)
+	}
+	if len(body.DisplayName) > 100 {
 		return apperr.BadRequest("displayName must be between 1 and 100 characters")
 	}
 	if len(body.APIKey) > 500 {
@@ -260,4 +263,20 @@ func (s *Server) handleProviderDelete(w http.ResponseWriter, r *http.Request) {
 		Payload:    map[string]any{"deleted": true},
 	})
 	writeData(w, http.StatusOK, map[string]any{"deleted": true})
+}
+
+func providerDefaultName(providerID string) string {
+	switch providerID {
+	case "openai":
+		return "OpenAI"
+	case "anthropic":
+		return "Anthropic"
+	case "google":
+		return "Google AI"
+	case "ollama":
+		return "Ollama (local)"
+	case "openai-compatible":
+		return "OpenAI-compatible endpoint"
+	}
+	return providerID
 }

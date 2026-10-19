@@ -1,0 +1,365 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+package views
+
+import templpkg "github.com/a-h/templ"
+
+func navClass(active, item string) string {
+	if active == item {
+		return "nav__item is-active"
+	}
+	return "nav__item"
+}
+
+func tabClass(active, item string) string {
+	if active == item {
+		return "tab is-active"
+	}
+	return "tab"
+}
+
+func inboxStream(shell ShellView) string {
+	if shell.InboxStream {
+		return "1"
+	}
+	return "0"
+}
+
+templ brandMark() {
+	<svg viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false">
+		<path d="M12.5 8.5H9v15h3.5M19.5 8.5H23v15h-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+		<circle cx="16" cy="16" r="2.4" fill="currentColor"></circle>
+	</svg>
+}
+
+templ brandLockup(link string, tag string) {
+	<a class="brand" href={ templpkg.SafeURL(link) } aria-label="ChasteDesk home">
+		<span class="brand__mark">@brandMark()</span>
+		<span>
+			<span class="brand__word">ChasteDesk</span>
+			if tag != "" {
+				<span class="brand__tag">{ tag }</span>
+			}
+		</span>
+	</a>
+}
+
+templ sidebar(shell ShellView) {
+	<aside class="sidebar" data-sidebar data-open="false" aria-label="Primary">
+		<div class="sidebar__brand">
+			@brandLockup("/dashboard", "support desk")
+			<button type="button" class="icon-btn topbar__menu" data-sidebar-close aria-label="Close navigation" style="margin-inline-start:auto; color: var(--color-sidebar-muted);">
+				@icon("x", "")
+			</button>
+		</div>
+		<div class="org-chip">
+			<span class="org-chip__avatar">{ initial(shell.OrgName) }</span>
+			<span class="org-chip__body">
+				<span class="org-chip__name">{ stringOr(shell.OrgName, "Your desk") }</span>
+				<span class="org-chip__meta">{ roleLabel(shell.Role) } · self-hosted</span>
+			</span>
+		</div>
+		<nav class="nav" aria-label="Workspace">
+			<div class="nav__group">
+				<span class="nav__label">Desk</span>
+				<a class={ navClass(shell.Active, "overview") } href="/dashboard" aria-current={ currentAttr(shell.Active, "overview") }>
+					@icon("home", "nav__icon")<span class="nav__text">Overview</span>
+				</a>
+				<a class={ navClass(shell.Active, "inbox") } href="/dashboard/inbox" aria-current={ currentAttr(shell.Active, "inbox") }>
+					@icon("inbox", "nav__icon")<span class="nav__text">Inbox</span>
+					if shell.OpenConversations > 0 {
+						<span class="nav__count">{ countText(shell.OpenConversations) }</span>
+					}
+				</a>
+				<a class={ navClass(shell.Active, "approvals") } href="/dashboard/approvals" aria-current={ currentAttr(shell.Active, "approvals") }>
+					@icon("approvals", "nav__icon")<span class="nav__text">Approvals</span>
+					if shell.PendingApprovals > 0 {
+						<span class="nav__count nav__count--attention">{ countText(shell.PendingApprovals) }</span>
+					}
+				</a>
+				<a class={ navClass(shell.Active, "customers") } href="/dashboard/customers" aria-current={ currentAttr(shell.Active, "customers") }>
+					@icon("users", "nav__icon")<span class="nav__text">Customers</span>
+				</a>
+			</div>
+			<div class="nav__group">
+				<span class="nav__label">Knowledge</span>
+				<a class={ navClass(shell.Active, "knowledge") } href="/dashboard/knowledge" aria-current={ currentAttr(shell.Active, "knowledge") }>
+					@icon("book", "nav__icon")<span class="nav__text">Sources</span>
+				</a>
+				<a class={ navClass(shell.Active, "analytics") } href="/dashboard/analytics" aria-current={ currentAttr(shell.Active, "analytics") }>
+					@icon("chart", "nav__icon")<span class="nav__text">Analytics</span>
+				</a>
+				if shell.CanAudit {
+					<a class={ navClass(shell.Active, "audit") } href="/dashboard/audit" aria-current={ currentAttr(shell.Active, "audit") }>
+						@icon("scroll", "nav__icon")<span class="nav__text">Audit log</span>
+					</a>
+				}
+			</div>
+			if shell.CanSettings {
+				<div class="nav__group">
+					<span class="nav__label">Configure</span>
+					<a class={ navClass(shell.Active, "agent") } href="/dashboard/settings?section=agent" aria-current={ currentAttr(shell.Active, "agent") }>
+						@icon("bot", "nav__icon")<span class="nav__text">Support agent</span>
+					</a>
+					<a class={ navClass(shell.Active, "settings") } href="/dashboard/settings" aria-current={ currentAttr(shell.Active, "settings") }>
+						@icon("settings", "nav__icon")<span class="nav__text">Settings</span>
+					</a>
+				</div>
+			}
+			if shell.OnboardingIncomplete {
+				<div class="nav__group">
+					<a class="nav__item" href="/onboarding">
+						@icon("alert", "nav__icon")<span class="nav__text">Finish setup</span>
+					</a>
+				</div>
+			}
+			<div class="nav__group">
+				<a class={ navClass(shell.Active, "account") } href="/dashboard/account" aria-current={ currentAttr(shell.Active, "account") }>
+					@icon("user", "nav__icon")<span class="nav__text">Account</span>
+				</a>
+			</div>
+		</nav>
+		<div class="sidebar__foot">
+			<div class="user-card">
+				<span class="avatar">{ initial(shell.UserName) }</span>
+				<span class="user-card__meta">
+					<span class="user-card__name">{ stringOr(shell.UserName, "Teammate") }</span>
+					<span class="user-card__email">{ shell.UserEmail }</span>
+				</span>
+				<form method="post" action="/logout" class="form--inline" style="margin-inline-start:auto;">
+					<button type="submit" class="icon-btn" aria-label="Sign out" title="Sign out">@icon("logout", "")</button>
+				</form>
+			</div>
+			<div class="sidebar__utilities">
+				<button type="button" class="sidebar__utility" data-theme-toggle>
+					@icon("moon", "")<span>Theme</span>
+				</button>
+				<a class="sidebar__utility" href="https://github.com/benaiah-muga/ChasteDesk#readme" target="_blank" rel="noreferrer noopener">
+					@icon("external", "")<span>Docs</span>
+				</a>
+			</div>
+		</div>
+	</aside>
+	<div class="sidebar-backdrop" data-sidebar-backdrop data-open="false" aria-hidden="true"></div>
+}
+
+templ topbar(shell ShellView) {
+	<header class="topbar">
+		<div class="topbar__left">
+			<button type="button" class="icon-btn topbar__menu" data-sidebar-toggle aria-expanded="false" aria-controls="primary-navigation" aria-label="Open navigation">@icon("menu", "")</button>
+			<nav class="topbar__crumbs" aria-label="Breadcrumb">
+				<a href="/dashboard">Desk</a>
+				<span class="topbar__crumb-sep">/</span>
+				<span aria-current="page">{ shell.PageTitle }</span>
+			</nav>
+		</div>
+		<div class="topbar__actions">
+			<button type="button" class="topbar__search" data-command-open aria-label="Search and jump to a page">
+				@icon("search", "")
+				<span>Search or jump to…</span>
+				<kbd>⌘K</kbd>
+			</button>
+			<button type="button" class="icon-btn icon-btn--outline" data-theme-toggle aria-label="Toggle theme">@icon("moon", "")</button>
+			if shell.OnboardingIncomplete {
+				<a class="btn btn--secondary btn--sm" href="/onboarding">@icon("alert", "") Finish setup</a>
+			}
+		</div>
+	</header>
+}
+
+templ commandPalette(shell ShellView) {
+	<dialog class="command" data-command aria-label="Search and jump">
+		<div class="command__head">
+			@icon("search", "")
+			<input class="command__input" type="text" placeholder="Jump to a page or action…" data-command-input aria-label="Search commands" autocomplete="off"/>
+			<kbd>esc</kbd>
+		</div>
+		<ul class="command__list" role="listbox" aria-label="Commands">
+			<li role="option" aria-selected="true" data-command-item data-command-search="overview dashboard home desk" tabindex="-1">
+				<a href="/dashboard" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("home", "") Overview</a>
+			</li>
+			<li role="option" data-command-item data-command-search="inbox conversations reply" tabindex="-1">
+				<a href="/dashboard/inbox" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("inbox", "") Inbox</a>
+			</li>
+			<li role="option" data-command-item data-command-search="approvals actions approve reject" tabindex="-1">
+				<a href="/dashboard/approvals" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("approvals", "") Approvals</a>
+			</li>
+			<li role="option" data-command-item data-command-search="customers people profiles" tabindex="-1">
+				<a href="/dashboard/customers" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("users", "") Customers</a>
+			</li>
+			<li role="option" data-command-item data-command-search="knowledge sources add url file text" tabindex="-1">
+				<a href="/dashboard/knowledge?add=url" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("book", "") Add knowledge</a>
+			</li>
+			<li role="option" data-command-item data-command-search="analytics metrics reports" tabindex="-1">
+				<a href="/dashboard/analytics" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("chart", "") Analytics</a>
+			</li>
+			if shell.CanAudit {
+				<li role="option" data-command-item data-command-search="audit log security events" tabindex="-1">
+					<a href="/dashboard/audit" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("scroll", "") Audit log</a>
+				</li>
+			}
+			if shell.CanSettings {
+				<li role="option" data-command-item data-command-search="agent policy model escalation" tabindex="-1">
+					<a href="/dashboard/settings?section=agent" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("bot", "") Support agent</a>
+				</li>
+				<li role="option" data-command-item data-command-search="settings provider api keys widget workspace" tabindex="-1">
+					<a href="/dashboard/settings" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("settings", "") Settings</a>
+				</li>
+			}
+			<li role="option" data-command-item data-command-search="account profile password name" tabindex="-1">
+				<a href="/dashboard/account" style="display:flex; align-items:center; gap:var(--space-sm); flex:1; color:inherit; text-decoration:none;">@icon("user", "") Account</a>
+			</li>
+			<li role="option" data-command-item data-command-search="theme dark light appearance" tabindex="-1">
+				<button type="button" data-theme-toggle style="display:flex; align-items:center; gap:var(--space-sm); width:100%; border:0; background:transparent; color:inherit; padding:0; font:inherit; text-align:left;">@icon("sun", "") Toggle theme</button>
+			</li>
+		</ul>
+		<p class="command__empty" data-command-empty hidden>No matches. Try “inbox” or “settings”.</p>
+	</dialog>
+}
+
+templ appShell(shell ShellView) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+		<meta name="color-scheme" content="light dark"/>
+		<title>{ stringOr(shell.PageTitle, "Dashboard") } · ChasteDesk</title>
+		<meta name="description" content="ChasteDesk, the self-hostable AI support desk that shows its work."/>
+		<link rel="icon" href="/static/mark.svg" type="image/svg+xml"/>
+		<link rel="preload" href="/static/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>
+		<link rel="preload" href="/static/fonts/instrument-serif.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>
+		<link rel="stylesheet" href="/static/css/tokens.css"/>
+		<link rel="stylesheet" href="/static/css/app.css"/>
+		<script src="/static/js/theme.js"></script>
+		<script src="/static/htmx.min.js" defer></script>
+		<script src="/static/js/app.js" defer></script>
+	</head>
+	<body data-inbox-stream={ inboxStream(shell) }>
+		<a class="skip-link" href="#main-content">Skip to content</a>
+		<div class="app-shell">
+			@sidebar(shell)
+			<div class="main">
+				@topbar(shell)
+				<main id="main-content" class="content" data-page={ shell.Active }>
+					if shell.Flash != "" {
+						@flashMessage(shell.Flash, shell.FlashTone)
+					}
+					{ children... }
+				</main>
+			</div>
+		</div>
+		@commandPalette(shell)
+	</body>
+	</html>
+}
+
+templ publicHead(title string, description string) {
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+		<meta name="color-scheme" content="light dark"/>
+		<title>{ title }</title>
+		<meta name="description" content={ description }/>
+		<link rel="icon" href="/static/mark.svg" type="image/svg+xml"/>
+		<link rel="preload" href="/static/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>
+		<link rel="preload" href="/static/fonts/instrument-serif.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>
+		<link rel="stylesheet" href="/static/css/tokens.css"/>
+		<link rel="stylesheet" href="/static/css/app.css"/>
+		<script src="/static/js/theme.js"></script>
+	</head>
+}
+
+templ publicBrandPanel() {
+	<div class="public__brand">
+		@brandLockup("/", "self-hosted support")
+		<div>
+			<h1 class="public__headline">Support that shows its work.</h1>
+			<p class="public__lede">An AI support desk you can read, approve, and host yourself. Every answer cites its source. Every risky action waits for a human.</p>
+		</div>
+		<div class="public__proof">
+			<div class="proof-card">
+				<div class="proof-card__head">
+					<span>Example answer</span>
+					<span>Grounded · 1 source</span>
+				</div>
+				<div class="proof-bubble proof-bubble--customer">How do I change the email on my invoices?</div>
+				<div class="proof-bubble proof-bubble--ai">
+					Open <strong>Settings → Billing</strong>, change the billing email, and save. New invoices use the new address immediately.
+				</div>
+				<div class="proof-cite">
+					@icon("quote", "") Billing settings · v3 · retrieved from your help center
+				</div>
+			</div>
+		</div>
+		<div class="public__principles">
+			<div class="principle">
+				<span class="principle__icon">@icon("quote", "")</span>
+				<span>
+					<span class="principle__title">Cited, not guessed</span>
+					<span class="principle__body">Answers are built from your knowledge and carry the passage they came from.</span>
+				</span>
+			</div>
+			<div class="principle">
+				<span class="principle__icon">@icon("approvals", "")</span>
+				<span>
+					<span class="principle__title">Approvals, not autopilot</span>
+					<span class="principle__body">Refunds, account changes, and other risky actions pause for a human decision.</span>
+				</span>
+			</div>
+			<div class="principle">
+				<span class="principle__icon">@icon("lock", "")</span>
+				<span>
+					<span class="principle__title">Yours to host</span>
+					<span class="principle__body">One Go binary, Postgres, and your own keys. No vendor in the middle.</span>
+				</span>
+			</div>
+		</div>
+	</div>
+}
+
+templ publicSplit(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@publicHead(title, "ChasteDesk is a self-hostable, AI-native customer support desk.")
+	</head>
+	<body>
+		<div class="public">
+			@publicBrandPanel()
+			<div class="public__panel">
+				<div class="public__panel-inner">
+					{ children... }
+					<footer class="public__foot">
+						<span>AGPL-3.0 · self-hosted</span>
+						<span>ChasteDesk</span>
+					</footer>
+				</div>
+			</div>
+		</div>
+		<script src="/static/js/app.js" defer></script>
+	</body>
+	</html>
+}
+
+templ ErrorPage(status int, title string, body string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@publicHead(title+" · ChasteDesk", body)
+	</head>
+	<body>
+		<main class="error-page">
+			<div class="error-page__inner">
+				<div class="brand" style="justify-content:center; margin-bottom: var(--space-xl);">@brandLockup("/", "")</div>
+				<p class="error-page__code">{ itoa(status) }</p>
+				<h1 class="error-page__title">{ title }</h1>
+				<p class="error-page__body">{ body }</p>
+				<div class="error-page__actions">
+					<a class="btn btn--secondary" href="/dashboard">Back to the desk</a>
+					<a class="btn btn--ghost" href="/login">Sign in</a>
+				</div>
+			</div>
+		</main>
+	</body>
+	</html>
+}

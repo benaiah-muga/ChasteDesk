@@ -48,7 +48,7 @@ export async function handleAiRespond(pool: pg.Pool, appSecret: string, data: Ai
   }));
 
   const recentRes = await pool.query(
-    `select to_char(created_at, 'YYYY-MM-DD') || ' — ' || coalesce(triage->>'summary', 'previous conversation') as line
+    `select to_char(created_at, 'YYYY-MM-DD') || ' - ' || coalesce(triage->>'summary', 'previous conversation') as line
      from conversations where org_id = $1 and customer_id = $2 and id <> $3 order by created_at desc limit 5`,
     [data.orgId, conv.customer_id, data.conversationId],
   );
@@ -75,7 +75,7 @@ export async function handleAiRespond(pool: pg.Pool, appSecret: string, data: Ai
   const configuredProvider = policy.model.providerId || null;
   const providerId = (configuredProvider ?? (await firstEnabledProvider(pool, data.orgId))) as ProviderId | null;
   if (!providerId) {
-    await escalateWithoutProvider(pool, data.orgId, data.conversationId, agent.id, "No AI provider is configured yet — routing to a teammate.");
+    await escalateWithoutProvider(pool, data.orgId, data.conversationId, agent.id, "No AI provider is configured yet - routing to a teammate.");
     return;
   }
   const resolved = await resolveProviderConfig(pool, appSecret, data.orgId, providerId);
@@ -126,7 +126,7 @@ async function escalateWithoutProvider(pool: pg.Pool, orgId: string, conversatio
   );
   await pool.query(
     `update conversations set status = 'awaiting_human', handoff = $2::jsonb, updated_at = now() where id = $1`,
-    [conversationId, JSON.stringify({ problem: note, recommendedNextStep: "Answer the customer — no AI provider is configured.", customerContext: {}, investigated: [], evidence: [], actionsTaken: [] })],
+    [conversationId, JSON.stringify({ problem: note, recommendedNextStep: "Answer the customer - no AI provider is configured.", customerContext: {}, investigated: [], evidence: [], actionsTaken: [] })],
   );
   await writeAuditPool(pool, orgId, { actorType: "agent", actorId: agentId, type: "run.escalated", targetType: "conversation", targetId: conversationId, payload: { reason: "no_provider" } });
   await pool.query("select pg_notify($1, $2)", ["chastedesk", JSON.stringify({ orgId, conversationId, type: "conversation.updated" })]);

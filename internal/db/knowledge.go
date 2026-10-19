@@ -18,6 +18,9 @@ type KnowledgeSourceRow struct {
 	Version        int       `json:"version"`
 	Error          *string   `json:"error"`
 	EmbeddingModel *string   `json:"embeddingModel"`
+	Chunks         int       `json:"chunks"`
+	Vector         bool      `json:"vector"`
+	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
@@ -27,8 +30,11 @@ type KnowledgeSourceDetail struct {
 }
 
 func (r *Repo) ListKnowledgeSources(ctx RepoCtx) ([]KnowledgeSourceRow, error) {
-	rows, err := r.pool.Query(ctx.Ctx, `select id::text, type::text, name, scope::text, status::text, version, error, embedding_model, updated_at
-		from knowledge_sources where org_id = $1 order by updated_at desc`, ctx.OrgID)
+	rows, err := r.pool.Query(ctx.Ctx, `select ks.id::text, ks.type::text, ks.name, ks.scope::text, ks.status::text, ks.version, ks.error,
+		ks.embedding_model, ks.created_at, ks.updated_at,
+		(select count(*)::int from knowledge_chunks kc where kc.source_id = ks.id and kc.version = ks.version) as chunks,
+		exists(select 1 from knowledge_chunks kc where kc.source_id = ks.id and kc.embedding is not null) as vector
+		from knowledge_sources ks where ks.org_id = $1 order by ks.updated_at desc`, ctx.OrgID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +42,7 @@ func (r *Repo) ListKnowledgeSources(ctx RepoCtx) ([]KnowledgeSourceRow, error) {
 	out := []KnowledgeSourceRow{}
 	for rows.Next() {
 		var row KnowledgeSourceRow
-		if err := rows.Scan(&row.ID, &row.Type, &row.Name, &row.Scope, &row.Status, &row.Version, &row.Error, &row.EmbeddingModel, &row.UpdatedAt); err != nil {
+		if err := rows.Scan(&row.ID, &row.Type, &row.Name, &row.Scope, &row.Status, &row.Version, &row.Error, &row.EmbeddingModel, &row.CreatedAt, &row.UpdatedAt, &row.Chunks, &row.Vector); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
@@ -46,9 +52,12 @@ func (r *Repo) ListKnowledgeSources(ctx RepoCtx) ([]KnowledgeSourceRow, error) {
 
 func (r *Repo) GetKnowledgeSource(ctx RepoCtx, id string) (KnowledgeSourceDetail, error) {
 	detail := KnowledgeSourceDetail{}
-	row := r.pool.QueryRow(ctx.Ctx, `select id::text, type::text, name, scope::text, status::text, version, error, embedding_model, updated_at, source_config
-		from knowledge_sources where id = $1 and org_id = $2`, id, ctx.OrgID)
-	err := row.Scan(&detail.ID, &detail.Type, &detail.Name, &detail.Scope, &detail.Status, &detail.Version, &detail.Error, &detail.EmbeddingModel, &detail.UpdatedAt, &detail.SourceConfig)
+	row := r.pool.QueryRow(ctx.Ctx, `select ks.id::text, ks.type::text, ks.name, ks.scope::text, ks.status::text, ks.version, ks.error,
+		ks.embedding_model, ks.created_at, ks.updated_at, ks.source_config,
+		(select count(*)::int from knowledge_chunks kc where kc.source_id = ks.id and kc.version = ks.version) as chunks,
+		exists(select 1 from knowledge_chunks kc where kc.source_id = ks.id and kc.embedding is not null) as vector
+		from knowledge_sources ks where ks.id = $1 and ks.org_id = $2`, id, ctx.OrgID)
+	err := row.Scan(&detail.ID, &detail.Type, &detail.Name, &detail.Scope, &detail.Status, &detail.Version, &detail.Error, &detail.EmbeddingModel, &detail.CreatedAt, &detail.UpdatedAt, &detail.SourceConfig, &detail.Chunks, &detail.Vector)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return detail, ErrNotFound
 	}

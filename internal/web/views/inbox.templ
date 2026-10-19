@@ -1,30 +1,54 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package views
 
+import "strings"
+
+type InboxFilterView struct {
+	Key    string
+	Label  string
+	Count  int
+	Active bool
+}
+
 type InboxConversationView struct {
 	ID            string
 	Status        string
 	StatusLabel   string
 	Channel       string
+	ChannelLabel  string
 	CustomerName  string
 	CustomerEmail string
+	Preview       string
 	CreatedAt     string
+	Time          string
+	Active        bool
+	Assigned      string
+}
+
+type InboxCitationView struct {
+	Index      int
+	SourceName string
+	Version    int
+	Quote      string
 }
 
 type InboxMessageView struct {
 	ID        string
 	Role      string
 	RoleLabel string
+	Author    string
 	Content   string
-	Citations []string
+	CreatedAt string
+	Citations []InboxCitationView
 }
 
 type InboxActionView struct {
-	ID      string
-	ToolID  string
-	Args    string
-	Status  string
-	Pending bool
+	ID        string
+	ToolID    string
+	Args      string
+	Status    string
+	Pending   bool
+	CreatedAt string
 }
 
 type InboxRecentView struct {
@@ -36,6 +60,7 @@ type InboxRecentView struct {
 type InboxCustomerView struct {
 	Name       string
 	Email      string
+	Initial    string
 	Attributes []InboxAttributeView
 	Recent     []InboxRecentView
 	OpenCount  int
@@ -50,156 +75,396 @@ type InboxHandoffView struct {
 	Problem             string
 	RecommendedNextStep string
 	Evidence            []string
+	Investigated        []string
+	Actions             []string
 }
 
 type InboxDetailView struct {
-	ID       string
-	Status   string
-	Handoff  *InboxHandoffView
-	Messages []InboxMessageView
-	Customer *InboxCustomerView
-	Actions  []InboxActionView
+	ID              string
+	Status          string
+	Channel         string
+	ChannelLabel    string
+	AssignedName    string
+	Assigned        bool
+	CreatedAt       string
+	Handoff         *InboxHandoffView
+	Messages        []InboxMessageView
+	Customer        *InboxCustomerView
+	Actions         []InboxActionView
+	PendingApprovals int
 }
 
-templ InboxPage(list []InboxConversationView, detail *InboxDetailView) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Inbox — ChasteDesk")
-		<script src="/static/htmx.min.js" defer></script>
-	</head>
-	<body>
-		<main>
-			<h1>Inbox</h1>
-			<div style="display: flex; gap: 16px; align-items: flex-start;">
-				<aside style="width: 300px; flex-shrink: 0;" aria-label="Conversations">
-					<div class="card" id="inbox-list" hx-get="/dashboard/inbox" hx-trigger="every 4s" hx-select="#inbox-list" hx-swap="outerHTML">
-						<h2>Conversations</h2>
-						for _, c := range list {
-							<div data-conversation={ c.ID } style="padding: 10px 0; border-bottom: 1px solid var(--border);">
-								<div class="row" style="justify-content: space-between;">
-									<strong>
-										<a href={ templ.URL("/dashboard/inbox/" + c.ID) }>{ c.CustomerName }</a>
-									</strong>
-									<span class={ "badge", badgeClass(c.Status) }>{ c.StatusLabel }</span>
-								</div>
-								<div class="muted" style="font-size: 12px;">{ c.CustomerEmail } · { c.CreatedAt }</div>
+type InboxView struct {
+	List          []InboxConversationView
+	Filters       []InboxFilterView
+	Status        string
+	Query         string
+	Detail        *InboxDetailView
+	TotalOpen     int
+	PendingCount  int
+	SearchAction  string
+}
+
+templ inboxContent(view InboxView) {
+	@pageHead("Inbox", "Every conversation, its evidence, and the decisions waiting on a human. The AI never hides its work.", nil)
+	<div class="inbox">
+		<section class="inbox__list card card--flush" aria-label="Conversations">
+			<div class="inbox__list-head">
+				<div class="row row--between">
+					<h2 class="card__title">Conversations</h2>
+					<span class="badge">{ itoa(view.TotalOpen) } open</span>
+				</div>
+				<nav class="inbox__filters" aria-label="Conversation filters">
+					for _, filter := range view.Filters {
+						<a class={ inboxFilterClass(filter.Active) } href={ filterHref(filter.Key, view.Query) }>
+							{ filter.Label }
+							if filter.Count > 0 {
+								<span class="nav__count" style="background:transparent;color:var(--color-faint);min-width:0;padding:0;height:auto;">{ itoa(filter.Count) }</span>
+							}
+						</a>
+					}
+				</nav>
+				<form method="get" action="/dashboard/inbox" class="search" role="search">
+					@icon("search", "")
+					<input type="search" name="q" value={ view.Query } placeholder="Search names or messages" aria-label="Search conversations"/>
+					if view.Status != "" {
+						<input type="hidden" name="status" value={ view.Status }/>
+					}
+				</form>
+			</div>
+			@InboxConversationList(view)
+		</section>
+		<section class="inbox__thread card card--flush" aria-label="Conversation detail" id="inbox-detail">
+			if view.Detail == nil {
+				<div class="card__body">
+					@emptyState(EmptyView{Icon: "inbox", Title: "Pick a conversation", Body: "Select a conversation on the left to read the thread, check the citations, and approve anything the AI paused."}, nil)
+				</div>
+			} else {
+				@InboxDetailLive(*view.Detail)
+				@inboxComposer(*view.Detail)
+			}
+		</section>
+		<aside class="inbox__context card card--flush" aria-label="Customer context">
+			if view.Detail != nil && view.Detail.Customer != nil {
+				@inboxCustomer(*view.Detail.Customer)
+			} else {
+				<div class="card__body muted small">Customer context appears with the conversation.</div>
+			}
+		</aside>
+	</div>
+}
+
+func inboxFilterClass(active bool) string {
+	if active {
+		return "inbox__filter is-active"
+	}
+	return "inbox__filter"
+}
+
+func filterHref(status, query string) string {
+	href := "/dashboard/inbox"
+	params := []string{}
+	if status != "" {
+		params = append(params, "status="+status)
+	}
+	if query != "" {
+		params = append(params, "q="+urlQueryEscape(query))
+	}
+	if len(params) > 0 {
+		href += "?"
+		for i, param := range params {
+			if i > 0 {
+				href += "&"
+			}
+			href += param
+		}
+	}
+	return href
+}
+
+func inboxListURL(view InboxView) string {
+	href := "/dashboard/inbox/list"
+	params := []string{}
+	if view.Status != "" {
+		params = append(params, "status="+urlQueryEscape(view.Status))
+	}
+	if view.Query != "" {
+		params = append(params, "q="+urlQueryEscape(view.Query))
+	}
+	if len(params) > 0 {
+		href += "?" + strings.Join(params, "&")
+	}
+	return href
+}
+
+templ InboxConversationList(view InboxView) {
+	<div class="inbox__list-body" id="inbox-list" hx-get={ inboxListURL(view) } hx-trigger="every 15s, inboxRefresh from:body" hx-swap="outerHTML">
+	if len(view.List) == 0 {
+		<div class="inbox__empty">
+			@emptyState(EmptyView{Icon: "inbox", Title: noConversationsTitle(view), Body: noConversationsBody(view)}, nil)
+		</div>
+	} else {
+		for _, conversation := range view.List {
+			<a class={ conversationClass(conversation.Active) } href={ "/dashboard/inbox/" + conversation.ID }>
+				<div class="conv__top">
+					<span class="conv__name">{ conversation.CustomerName }</span>
+					<span class="conv__time">{ conversation.Time }</span>
+				</div>
+				<div class="conv__preview">{ stringOr(conversation.Preview, "No messages yet") }</div>
+				<div class="conv__meta">
+					@statusBadge(conversation.Status)
+					<span>{ conversation.ChannelLabel }</span>
+					if conversation.Assigned != "" {
+						<span>·</span><span>{ conversation.Assigned }</span>
+					}
+				</div>
+			</a>
+		}
+	}
+	</div>
+}
+
+func conversationClass(active bool) string {
+	if active {
+		return "conv is-active"
+	}
+	return "conv"
+}
+
+func noConversationsTitle(view InboxView) string {
+	if view.Query != "" {
+		return "No matches"
+	}
+	if view.Status != "" {
+		return "Nothing in this view"
+	}
+	return "No conversations yet"
+}
+
+func noConversationsBody(view InboxView) string {
+	if view.Query != "" {
+		return "No customer name or message matched that search. Try a shorter term, or clear the filters."
+	}
+	if view.Status != "" {
+		return "This status is empty right now. Switch back to All to see the rest of the desk."
+	}
+	return "When someone messages the widget or the API, the conversation appears here with its evidence and handoff."
+}
+
+templ InboxDetailLive(detail InboxDetailView) {
+	<div id="thread-live" hx-get={ "/dashboard/inbox/" + detail.ID + "/live" } hx-trigger="every 20s, inboxRefresh from:body" hx-swap="outerHTML">
+		<header class="thread__head">
+			<div class="thread__who">
+				@avatar(customerName(detail), "")
+				<div>
+					<div class="thread__name">{ customerName(detail) }</div>
+					<div class="thread__email">{ customerEmail(detail) }</div>
+				</div>
+			</div>
+			<div class="thread__meta">
+				@statusBadge(detail.Status)
+				<span class="scope-chip">{ detail.ChannelLabel }</span>
+				if detail.AssignedName != "" {
+					<span class="scope-chip">assigned to { detail.AssignedName }</span>
+				}
+				<span class="scope-chip">opened { detail.CreatedAt }</span>
+			</div>
+			<div class="thread__actions">
+				if detail.Status != "resolved" && detail.Status != "closed" {
+					<form method="post" action={ "/dashboard/inbox/" + detail.ID + "/resolve" }>
+						<input type="hidden" name="action" value="resolve"/>
+						<button class="btn btn--secondary btn--sm" type="submit">Resolve</button>
+					</form>
+				} else {
+					<form method="post" action={ "/dashboard/inbox/" + detail.ID + "/resolve" }>
+						<input type="hidden" name="action" value="reopen"/>
+						<button class="btn btn--secondary btn--sm" type="submit">Reopen</button>
+					</form>
+				}
+				<form method="post" action={ "/dashboard/inbox/" + detail.ID + "/assign" }>
+					if detail.Assigned {
+						<input type="hidden" name="assign" value="clear"/>
+						<button class="btn btn--ghost btn--sm" type="submit">Unassign</button>
+					} else {
+						<input type="hidden" name="assign" value="me"/>
+						<button class="btn btn--ghost btn--sm" type="submit">Assign to me</button>
+					}
+				</form>
+			</div>
+		</header>
+		<div class="thread__body">
+			if detail.Handoff != nil {
+				<div class="handoff" aria-label="Handoff summary">
+					<div class="handoff__head">@icon("alert", "") Why the AI escalated</div>
+					<p class="handoff__problem">{ detail.Handoff.Problem }</p>
+					<p class="handoff__next"><strong>Recommended next step:</strong> { detail.Handoff.RecommendedNextStep }</p>
+					if len(detail.Handoff.Evidence) > 0 {
+						<p class="handoff__evidence">Evidence: { joinStrings(detail.Handoff.Evidence, " · ") }</p>
+					}
+					if len(detail.Handoff.Investigated) > 0 {
+						<p class="handoff__evidence">Checked: { joinStrings(detail.Handoff.Investigated, " · ") }</p>
+					}
+				</div>
+			}
+			<div class="chat" data-thread data-thread-scroll aria-label="Messages" role="log">
+				if len(detail.Messages) == 0 {
+					<p class="muted small">No messages yet.</p>
+				}
+				for _, message := range detail.Messages {
+					<div class={ messageClass(message.Role) }>
+						if message.Role != "system" {
+							<div class="msg__head">
+								<span>{ message.Author }</span>
+								<span>{ message.CreatedAt }</span>
 							</div>
 						}
-						if len(list) == 0 {
-							<p class="muted">No conversations yet.</p>
+						<div class="msg__body">{ message.Content }</div>
+						if len(message.Citations) > 0 {
+							<div class="msg__citations">
+								for _, citation := range message.Citations {
+									<div class="citation">
+										@icon("quote", "")
+										<span><strong>[E{ itoa(citation.Index) }]</strong> { citation.SourceName } · v{ itoa(citation.Version) } · { citation.Quote }</span>
+									</div>
+								}
+							</div>
 						}
 					</div>
-				</aside>
-				<section style="flex: 1; min-width: 0;" aria-label="Conversation detail">
-					if detail == nil {
-						<div class="card"><p class="muted">Select a conversation.</p></div>
-					} else {
-						@inboxDetail(*detail)
-					}
-				</section>
-			</div>
-		</main>
-	</body>
-</html>
-}
-
-templ inboxDetail(detail InboxDetailView) {
-	<div class="stack" id="inbox-detail" hx-get={ "/dashboard/inbox/" + detail.ID } hx-trigger="every 4s" hx-select="#inbox-detail" hx-swap="outerHTML">
-		<div class="row" style="justify-content: space-between;">
-			<h2 style="margin: 0;">Conversation</h2>
-			if detail.Status == "awaiting_human" || detail.Status == "human_active" {
-				<form method="post" action={ "/dashboard/inbox/" + detail.ID + "/resolve" }>
-					<input type="hidden" name="action" value="resolve"/>
-					<button class="secondary" type="submit">Resolve</button>
-				</form>
-			}
-		</div>
-		if detail.Handoff != nil {
-			<div class="card" aria-label="Handoff summary" style="background: #eef5f1;">
-				<h2>Why the AI escalated</h2>
-				<p><strong>Problem:</strong> { detail.Handoff.Problem }</p>
-				<p><strong>Recommended next step:</strong> { detail.Handoff.RecommendedNextStep }</p>
-				if len(detail.Handoff.Evidence) > 0 {
-					<p class="muted">Evidence: { joinStrings(detail.Handoff.Evidence, ", ") }</p>
 				}
 			</div>
-		}
-		<div class="card" aria-label="Messages">
-			<h2>Messages</h2>
-			for _, m := range detail.Messages {
-				<div style="margin: 8px 0; padding: 8px; border-left: 3px solid var(--border);">
-					<div class="muted" style="font-size: 11px;">{ m.RoleLabel }</div>
-					<div>{ m.Content }</div>
-					if len(m.Citations) > 0 {
-						<div class="muted" style="font-size: 11px; margin-top: 4px;">Cited sources: { joinStrings(m.Citations, " | ") }</div>
+			if len(detail.Actions) > 0 {
+				<div class="stack stack--sm" aria-label="Approvals">
+					<div class="section-title"><h2>Approvals</h2><p>{ countLabel(detail.PendingApprovals, "decision waiting", "decisions waiting") }</p></div>
+					for _, action := range detail.Actions {
+						if action.Pending {
+							<div class="approval">
+								<div class="approval__head">
+									<span class="approval__tool">{ action.ToolID }</span>
+									@statusBadge(action.Status)
+								</div>
+								<pre class="approval__args">{ action.Args }</pre>
+								<form method="post" action="/dashboard/inbox/action" class="approval__actions">
+									<input type="hidden" name="actionId" value={ action.ID }/>
+									<input type="hidden" name="conversationId" value={ detail.ID }/>
+									<button class="btn btn--primary btn--sm" type="submit" name="decision" value="approve">Approve</button>
+									<button class="btn btn--danger btn--sm" type="submit" name="decision" value="reject">Reject</button>
+									<span class="approval__note">Requested { action.CreatedAt }. Approval runs the tool, then verifies the result before the customer sees “done”.</span>
+								</form>
+							</div>
+						}
 					}
 				</div>
 			}
 		</div>
-		<div class="card">
-			<h2>Reply</h2>
-			<form method="post" action={ "/dashboard/inbox/" + detail.ID + "/reply" }>
-				<textarea name="content" rows="4" placeholder="Write a reply…"></textarea>
-				<div class="row" style="margin-top: 8px;">
-					<label class="row" style="margin: 0;">
-						<input type="checkbox" name="internal"/> internal note
-					</label>
-					<button type="submit">Send</button>
-					<button type="button" class="secondary" hx-post={ "/dashboard/inbox/" + detail.ID + "/copilot" } hx-target="#copilot-panel" hx-swap="innerHTML">Draft with copilot</button>
-				</div>
-			</form>
-			<div id="copilot-panel"></div>
-		</div>
-		<div class="card" aria-label="Approvals">
-			<h2>Approvals</h2>
-			for _, a := range detail.Actions {
-				if a.Pending {
-					<div class="card" style="margin-bottom: 8px;">
-						<strong>{ a.ToolID }</strong>
-						<pre style="font-size: 11px; white-space: pre-wrap;">{ a.Args }</pre>
-						<form method="post" action="/dashboard/inbox/action" class="row">
-							<input type="hidden" name="actionId" value={ a.ID }/>
-							<input type="hidden" name="conversationId" value={ detail.ID }/>
-							<button type="submit" name="decision" value="approve">Approve</button>
-							<button type="submit" class="danger" name="decision" value="reject">Reject</button>
-						</form>
-					</div>
-				}
-			}
-			@inboxPendingCount(detail.Actions)
-		</div>
-		if detail.Customer != nil {
-			<div class="card" aria-label="Customer context">
-				<h2>Customer</h2>
-				<p><strong>{ detail.Customer.Name }</strong><br/>{ detail.Customer.Email }</p>
-				<p class="muted">{ openConversationLabel(detail.Customer.OpenCount) }</p>
-				for _, attr := range detail.Customer.Attributes {
-					<p style="font-size: 12px;">{ attr.Key }: { attr.Value }</p>
-				}
-				<ul style="padding-left: 16px; font-size: 12px;">
-					for _, recent := range detail.Customer.Recent {
-						<li>{ recent.Status } · { recent.CreatedAt }</li>
-					}
-				</ul>
-			</div>
-		}
 	</div>
 }
 
-templ inboxPendingCount(actions []InboxActionView) {
-	if pendingActionCount(actions) == 0 {
-		<p class="muted">No pending approvals.</p>
+func customerName(detail InboxDetailView) string {
+	if detail.Customer != nil && detail.Customer.Name != "" {
+		return detail.Customer.Name
 	}
+	return "Customer"
 }
 
-templ InboxCopilotFragment(conversationID string, draft string) {
-	<div class="card" style="margin-top: 8px;">
-		<h2>Copilot draft (not sent)</h2>
-		<pre style="white-space: pre-wrap; font-size: 13px;">{ draft }</pre>
-		<form method="post" action={ "/dashboard/inbox/" + conversationID + "/copilot/send" }>
-			<textarea name="content" rows="2" style="display: none;">{ draft }</textarea>
-			<button type="submit">Send draft</button>
+func customerEmail(detail InboxDetailView) string {
+	if detail.Customer != nil {
+		return detail.Customer.Email
+	}
+	return ""
+}
+
+func messageClass(role string) string {
+	switch role {
+	case "customer":
+		return "msg msg--customer"
+	case "agent_ai":
+		return "msg msg--ai"
+	case "agent_human":
+		return "msg msg--human"
+	case "internal_note":
+		return "msg msg--note"
+	}
+	return "msg msg--system"
+}
+
+templ inboxComposer(detail InboxDetailView) {
+	<div class="composer" data-composer>
+		<form method="post" action={ "/dashboard/inbox/" + detail.ID + "/reply" }>
+			<input type="hidden" name="internal" value="0" data-composer-internal/>
+			<div class="composer__switch" role="tablist" aria-label="Message type">
+				<button type="button" class="composer__tab is-active" data-composer-mode="reply" role="tab" aria-selected="true">@icon("message", "") Reply</button>
+				<button type="button" class="composer__tab" data-composer-mode="note" role="tab" aria-selected="false">@icon("lock", "") Internal note</button>
+			</div>
+			<label class="sr-only" for="reply-content">Reply or internal note</label>
+			<textarea class="composer__input" id="reply-content" name="content" rows="4" data-composer-input data-autogrow placeholder="Write a reply to the customer…" required></textarea>
+			<div class="composer__actions">
+				<button class="btn btn--primary" type="submit">@icon("send", "") Send reply</button>
+				<button class="btn btn--secondary" type="button" hx-post={ "/dashboard/inbox/" + detail.ID + "/copilot" } hx-target="#copilot-panel" hx-swap="innerHTML">@icon("sparkle", "") Draft with copilot</button>
+				<span class="composer__hint">⌘ + Enter to send</span>
+			</div>
+		</form>
+		<div id="copilot-panel"></div>
+	</div>
+}
+
+templ InboxCopilotFragment(conversationID string, draft string, grounded bool) {
+	<div class="copilot">
+		<div class="copilot__head">@icon("sparkle", "") Copilot draft (not sent) · { yesNo(grounded, "grounded", "not grounded") }</div>
+		<div class="copilot__body" id="copilot-text">{ draft }</div>
+		<form method="post" action={ "/dashboard/inbox/" + conversationID + "/copilot/send" } class="row" style="margin-top: var(--space-sm);">
+			<textarea name="content" rows="2" style="display:none;">{ draft }</textarea>
+			<button class="btn btn--primary btn--sm" type="submit">Send draft</button>
+			<span class="muted small">Nothing is sent until you press Send.</span>
 		</form>
 	</div>
+}
+
+templ inboxCustomer(customer InboxCustomerView) {
+	<div class="context">
+		<div class="context__head">
+			<div class="row">
+				@avatar(customer.Name, "avatar--lg")
+				<div>
+					<div class="thread__name">{ stringOr(customer.Name, "Website visitor") }</div>
+					<div class="thread__email">{ stringOr(customer.Email, "No email captured") }</div>
+				</div>
+			</div>
+		</div>
+		<div class="context__section">
+			<div class="context__label">History</div>
+			<p class="small">{ openConversationLabel(customer.OpenCount) }</p>
+			if len(customer.Recent) > 0 {
+				<div class="context__recent" style="margin-top: var(--space-sm);">
+					for _, recent := range customer.Recent {
+						<a href={ "/dashboard/inbox/" + recent.ID }>
+							<span>{ recent.Status }</span>
+							<span class="context__count">{ recent.CreatedAt }</span>
+						</a>
+					}
+				</div>
+			} else {
+				<p class="small muted">First conversation.</p>
+			}
+		</div>
+		<div class="context__section">
+			<div class="context__label">Attributes</div>
+			if len(customer.Attributes) == 0 {
+				<p class="small muted">No attributes captured yet.</p>
+			} else {
+				for _, attr := range customer.Attributes {
+					<div class="attribute"><span class="attribute__key">{ attr.Key }</span><span class="attribute__value">{ attr.Value }</span></div>
+				}
+			}
+		</div>
+		<div class="context__section">
+			<div class="context__label">Policy</div>
+			<p class="small muted">The AI may quote public sources only. Internal notes and approvals stay inside the desk.</p>
+		</div>
+	</div>
+}
+
+templ InboxPage(shell ShellView, view InboxView) {
+	@appShell(shell) {
+		@inboxContent(view)
+	}
 }

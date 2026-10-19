@@ -74,7 +74,7 @@
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ content: text }),
         }).then(function (r) {
-          if (r.status === 429) addMessage("system", "You're sending messages too quickly — please wait a moment.");
+          if (r.status === 429) addMessage("system", "You're sending messages too quickly - please wait a moment.");
         });
       });
     });
@@ -121,7 +121,7 @@
       var data = JSON.parse(e.data);
       if (!state.seen[data.id]) {
         state.seen[data.id] = true;
-        addMessage("system", "I'm checking with a teammate on this one — you'll hear from us shortly.");
+        addMessage("system", "I'm checking with a teammate on this one - you'll hear from us shortly.");
       }
     });
     es.onerror = function () {

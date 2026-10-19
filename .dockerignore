@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+apps
+packages
+e2e
+.turbo
+.next
+dist
+coverage
+data
+.unlazy
+docs
+scripts
+*.md
+LICENSE

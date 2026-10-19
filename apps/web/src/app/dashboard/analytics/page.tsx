@@ -28,8 +28,8 @@ export default function AnalyticsPage() {
         ["Total conversations", String(metrics.total_conversations)],
         ["AI resolution rate", `${Math.round(metrics.ai_resolution_rate * 100)}%`],
         ["Escalation rate", `${Math.round(metrics.escalation_rate * 100)}%`],
-        ["Median first response", metrics.p50_first_response_seconds !== null ? `${metrics.p50_first_response_seconds}s` : "—"],
-        ["Median resolution", metrics.p50_resolution_seconds !== null ? `${metrics.p50_resolution_seconds}s` : "—"],
+        ["Median first response", metrics.p50_first_response_seconds !== null ? `${metrics.p50_first_response_seconds}s` : "-"],
+        ["Median resolution", metrics.p50_resolution_seconds !== null ? `${metrics.p50_resolution_seconds}s` : "-"],
       ]
     : [];
 
@@ -39,7 +39,7 @@ export default function AnalyticsPage() {
       {!loaded ? (
         <p className="muted">Loading…</p>
       ) : !metrics ? (
-        <p className="muted">No analytics yet — data appears as conversations resolve.</p>
+        <p className="muted">No analytics yet - data appears as conversations resolve.</p>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
           {cards.map(([label, value]) => (

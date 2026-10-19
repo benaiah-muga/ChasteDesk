@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package views
 
-import "strconv"
+type ProviderOption struct {
+	ID          string
+	Label       string
+	Keyless     bool
+	Description string
+}
 
 type ProviderView struct {
 	ID          string
@@ -9,351 +14,1063 @@ type ProviderView struct {
 	DisplayName string
 	KeyLast4    string
 	BaseURL     string
+	ModelCount  int
+	Enabled     bool
+	Initial     string
 }
 
 type SourceView struct {
-	ID      string
-	Name    string
-	Type    string
-	Scope   string
-	Status  string
-	Version int
-	Error   string
+	ID        string
+	Name      string
+	Type      string
+	Scope     string
+	Status    string
+	Version   int
+	Error     string
+	Chunks    int
+	Vector    bool
+	CreatedAt string
+}
+
+type KnowledgeView struct {
+	Sources          []SourceView
+	AddMode          string
+	Message          string
+	CanWrite         bool
+	VectorSearch     bool
+	TotalSources     int
+	ReadySources     int
+	ProcessingSources int
+	FailedSources    int
+	TotalChunks      int
 }
 
 type OnboardingView struct {
 	ProviderConfigured bool
 	KnowledgeAdded     bool
 	Complete           bool
+	ProviderCount      int
+	SourceCount        int
 }
 
-templ baseHead(title string) {
-	<meta charset="utf-8"/>
-	<meta name="viewport" content="width=device-width, initial-scale=1"/>
-	<title>{ title }</title>
-	<style>
-		:root { --fg: #1c2b2d; --muted: #5b6b6e; --bg: #f7f8f7; --card: #ffffff; --border: #dfe4e2; --accent: #1f6f5c; --accent-strong: #17574a; --warn: #9a3412; }
-		* { box-sizing: border-box; }
-		body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-		main { max-width: 880px; margin: 0 auto; padding: 40px 24px 64px; }
-		h1 { font-size: 26px; letter-spacing: -0.01em; margin: 0 0 8px; }
-		h2 { font-size: 17px; margin: 0 0 12px; }
-		p { margin: 0 0 12px; }
-		.muted { color: var(--muted); }
-		.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 0 0 20px; }
-		.stack > * + * { margin-top: 12px; }
-		.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-		label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-		input[type="text"], input[type="url"], input[type="password"], input[type="email"], select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--fg); font: inherit; }
-		textarea { resize: vertical; }
-		button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
-		button:hover { background: var(--accent-strong); }
-		button.secondary { background: transparent; color: var(--accent); }
-		button.danger { background: transparent; border-color: var(--warn); color: var(--warn); }
-		.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: #eef1ef; font-size: 12px; color: var(--muted); }
-		.badge.success { background: #e4f3ec; border-color: #bcdfd0; color: var(--accent-strong); }
-		.badge.warn { background: #fbeae3; border-color: #eec9b8; color: var(--warn); }
-		table { width: 100%; border-collapse: collapse; }
-		th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 8px; border-bottom: 1px solid var(--border); }
-		td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-		.error-text { color: var(--warn); }
-		a { color: var(--accent); }
-	</style>
+type ToolModeView struct {
+	ID          string
+	Description string
+	Mode        string
+}
+
+type ModelOption struct {
+	ID          string
+	DisplayName string
+}
+
+type ProviderModels struct {
+	ProviderID string
+	Label      string
+	Models     []ModelOption
+}
+
+type AgentFormView struct {
+	Purpose             string
+	PublicScope         bool
+	InternalScope       bool
+	Tools               []ToolModeView
+	Keywords            string
+	Threshold           string
+	ProviderID          string
+	ModelID             string
+	MaxSteps            string
+	MaxToolCalls        string
+	MaxInputTokens      string
+	MaxOutputTokens     string
+	Providers           []ProviderOption
+	ProviderModels      []ProviderModels
+	ConfiguredProviders int
+	HasKnowledge        bool
+	HasEmbedding        bool
+}
+
+type APIKeyView struct {
+	ID        string
+	Name      string
+	Prefix    string
+	LastUsed  string
+	CreatedAt string
+}
+
+type MemberView struct {
+	Name   string
+	Email  string
+	Role   string
+	Joined string
+	Self   bool
+}
+
+type InvitationView struct {
+	ID        string
+	Email     string
+	Role      string
+	Expires   string
+	Link      string
+}
+
+type SettingsView struct {
+	Section          string
+	Providers        []ProviderView
+	ProviderOptions  []ProviderOption
+	Agent            AgentFormView
+	OriginsText      string
+	EmbedSnippet     string
+	WidgetDisplayName string
+	WidgetGreeting   string
+	WidgetPrimary    string
+	WidgetPosition   string
+	WidgetEnabled    bool
+	APIKeys          []APIKeyView
+	CreatedKey       string
+	OrgName          string
+	AccountName      string
+	Members          []MemberView
+	Invitations      []InvitationView
+	CreatedInvite    string
+	CreatedInviteURL string
+	CanManage        bool
+	CurrentUserEmail string
+	CurrentRole      string
+}
+
+func ProviderCatalog() []ProviderOption {
+	return []ProviderOption{
+		{ID: "openai", Label: "OpenAI", Description: "GPT models and embeddings."},
+		{ID: "anthropic", Label: "Anthropic", Description: "Claude models."},
+		{ID: "google", Label: "Google AI", Description: "Gemini models and embeddings."},
+		{ID: "ollama", Label: "Ollama (local)", Keyless: true, Description: "Local models, no cloud key."},
+		{ID: "openai-compatible", Label: "OpenAI-compatible", Keyless: true, Description: "Any endpoint that speaks the OpenAI API."},
+	}
+}
+
+func providerLabel(id string) string {
+	for _, option := range ProviderCatalog() {
+		if option.ID == id {
+			return option.Label
+		}
+	}
+	return id
+}
+
+func sourceTypeLabel(kind string) string {
+	switch kind {
+	case "url":
+		return "Website"
+	case "file":
+		return "File"
+	case "text":
+		return "Pasted text"
+	}
+	return kind
+}
+
+func sourceIcon(kind string) string {
+	switch kind {
+	case "url":
+		return "globe"
+	case "file":
+		return "file"
+	}
+	return "file"
+}
+
+func yesNo(value bool, yes, no string) string {
+	if value {
+		return yes
+	}
+	return no
+}
+
+func currentOnboardingStep(view OnboardingView) int {
+	switch {
+	case !view.ProviderConfigured:
+		return 1
+	case !view.KnowledgeAdded:
+		return 2
+	default:
+		return 3
+	}
 }
 
 templ LoginPage(errorMessage string) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Sign in — ChasteDesk")
-	</head>
-	<body>
-		<main style="max-width: 400px;">
-			<h1>Sign in</h1>
-			<p class="muted">Welcome back. Use the account you created during setup.</p>
-			<section class="card">
-				<form method="post" action="/login" class="stack">
-					<div>
-						<label for="email">Email</label>
-						<input id="email" name="email" type="email" required/>
-					</div>
-					<div>
-						<label for="password">Password</label>
-						<input id="password" name="password" type="password" required/>
-					</div>
-					if errorMessage != "" {
-						<p class="error-text">{ errorMessage }</p>
-					}
-					<button type="submit">Sign in</button>
-				</form>
-			</section>
-		</main>
-	</body>
-	</html>
+	@publicSplit("Sign in · ChasteDesk") {
+		<div class="auth__head">
+			<p class="eyebrow">Welcome back</p>
+			<h1 class="auth__title">Sign in to your desk.</h1>
+			<p class="auth__sub">Pick up where the AI left off. Your sessions last seven days on this browser.</p>
+		</div>
+		<form method="post" action="/login" class="auth__form form">
+			if errorMessage != "" {
+				<div class="auth__error">
+					@alertBox("danger", "That didn’t match", errorMessage)
+				</div>
+			}
+			<div class="field">
+				<label class="field__label" for="email">Email</label>
+				<input class="input" id="email" name="email" type="email" autocomplete="username" required placeholder="you@company.com"/>
+			</div>
+			<div class="field">
+				<label class="field__label" for="password">Password</label>
+				<input class="input" id="password" name="password" type="password" autocomplete="current-password" required/>
+			</div>
+			<div class="form__actions">
+				<button class="btn btn--primary btn--block btn--lg" type="submit">Sign in</button>
+			</div>
+			<div class="auth__meta">
+				<span>Single-org install</span>
+				<a class="link" href="/setup">First run? Create the desk</a>
+			</div>
+		</form>
+	}
 }
 
-templ ProviderForm(action string) {
-	<form method="post" action={ action } class="stack">
-		<div>
-			<label for="provider">Provider</label>
-			<select id="provider" name="providerId">
-				<option value="openai">OpenAI</option>
-				<option value="anthropic">Anthropic</option>
-				<option value="google">Google AI</option>
-				<option value="ollama">Ollama (local)</option>
-				<option value="openai-compatible">OpenAI-compatible endpoint</option>
-			</select>
+templ SetupPage(errorMessage string, orgName string, userName string, email string) {
+	@publicSplit("Create your desk · ChasteDesk") {
+		<div class="auth__head">
+			<p class="eyebrow">First run</p>
+			<h1 class="auth__title">Create your desk.</h1>
+			<p class="auth__sub">This installation is empty. The first account becomes the owner, with full access to settings, audit, and the inbox.</p>
 		</div>
-		<div>
-			<label for="displayName">Display name</label>
-			<input id="displayName" name="displayName" type="text" value="OpenAI" required/>
+		<form method="post" action="/setup" class="auth__form form">
+			if errorMessage != "" {
+				<div class="auth__error">
+					@alertBox("danger", "Check the details", errorMessage)
+				</div>
+			}
+			<div class="field">
+				<label class="field__label" for="orgName">Workspace name</label>
+				<input class="input" id="orgName" name="orgName" type="text" required maxlength="100" value={ orgName } placeholder="Acme Support"/>
+				<span class="field__hint">Shown in the sidebar. You can change it later.</span>
+			</div>
+			<div class="field">
+				<label class="field__label" for="userName">Your name</label>
+				<input class="input" id="userName" name="userName" type="text" required maxlength="100" value={ userName } autocomplete="name" placeholder="Ada Lovelace"/>
+			</div>
+			<div class="field">
+				<label class="field__label" for="email">Email</label>
+				<input class="input" id="email" name="email" type="email" required value={ email } autocomplete="username" placeholder="you@company.com"/>
+			</div>
+			<div class="field">
+				<label class="field__label" for="password">Password</label>
+				<input class="input" id="password" name="password" type="password" required minlength="8" maxlength="200" autocomplete="new-password"/>
+				<span class="field__hint">At least 8 characters. Stored as an Argon2id hash.</span>
+			</div>
+			<div class="form__actions">
+				<button class="btn btn--primary btn--block btn--lg" type="submit">Create the desk</button>
+			</div>
+			<div class="auth__meta">
+				<span>AGPL-3.0 · self-hosted</span>
+				<a class="link" href="/login">Already set up? Sign in</a>
+			</div>
+		</form>
+	}
+}
+
+templ InvitePage(errorMessage string, email string, role string, orgName string) {
+	@publicSplit("Join " + orgName + " · ChasteDesk") {
+		<div class="auth__head">
+			<p class="eyebrow">Invitation</p>
+			<h1 class="auth__title">Join { orgName }.</h1>
+			<p class="auth__sub">You have been invited as { roleLabel(role) }. Choose your name and a password to open the desk.</p>
 		</div>
-		<div>
-			<label for="apiKey">API key</label>
-			<input id="apiKey" name="apiKey" type="password" placeholder="Stored encrypted, never shown again"/>
+		<form method="post" action="" class="auth__form form">
+			if errorMessage != "" {
+				<div class="auth__error">@alertBox("danger", "Check the details", errorMessage)</div>
+			}
+			<div class="field"><label class="field__label" for="email">Email</label><input class="input" id="email" type="email" value={ email } disabled/></div>
+			<div class="field"><label class="field__label" for="userName">Your name</label><input class="input" id="userName" name="name" type="text" required maxlength="100" autocomplete="name" placeholder="Ada Lovelace"/></div>
+			<div class="field"><label class="field__label" for="password">Password</label><input class="input" id="password" name="password" type="password" required minlength="8" maxlength="200" autocomplete="new-password"/><span class="field__hint">At least 8 characters. Stored as an Argon2id hash.</span></div>
+			<div class="form__actions"><button class="btn btn--primary btn--block btn--lg" type="submit">Accept invitation</button></div>
+			<div class="auth__meta"><span>Single-use link · expires in seven days</span><a class="link" href="/login">Sign in instead</a></div>
+		</form>
+	}
+}
+
+templ onboardingStep(num int, title string, body string, state string) {
+	<div class={ "onboard__step " + state }>
+		<span class="onboard__num">
+			if state == "is-done" {
+				@icon("check", "")
+			} else {
+				{ itoa(num) }
+			}
+		</span>
+		<span>
+			<span class="onboard__step-title">{ title }</span>
+			<span class="onboard__step-body">{ body }</span>
+		</span>
+	</div>
+}
+
+templ onboardingContent(view OnboardingView) {
+	@pageHead("Set up your desk", "Three deliberate steps: connect a model, give it something true to read, then open the doors.", nil)
+	if view.Complete {
+		<div class="grid">
+			<div class="span-8 stack">
+				<section class="card card--accent">
+					<div class="card__body stack">
+						<p class="eyebrow">Desk ready</p>
+						<h2 class="settings-section__title">Your desk is ready.</h2>
+						<p class="muted">Your AI will answer only from the knowledge you add, cite what it used, and escalate when confidence or policy says so. You can tune all of that under the support agent.</p>
+						<div class="row">
+							<a class="btn btn--primary" href="/dashboard/inbox">@icon("inbox", "") Open the inbox</a>
+							<a class="btn btn--secondary" href="/dashboard/settings?section=agent">Tune the agent</a>
+						</div>
+					</div>
+				</section>
+				<section class="card">
+					<div class="card__head"><div><h2 class="card__title">What happens next</h2><p class="card__sub">A short, honest walkthrough.</p></div></div>
+					<div class="card__body">
+						<ul class="list" style="margin: calc(-1 * var(--space-lg)); margin-inline: calc(-1 * var(--space-lg));">
+							<li class="list__item"><span class="empty__icon">@icon("message", "")</span><span class="list__main"><span class="list__title">A customer asks a question</span><span class="list__sub">The widget creates a conversation and queues an AI run.</span></span></li>
+							<li class="list__item"><span class="empty__icon">@icon("quote", "")</span><span class="list__main"><span class="list__title">The AI retrieves and cites</span><span class="list__sub">Hybrid search over your sources. No citation, no answer.</span></span></li>
+							<li class="list__item"><span class="empty__icon">@icon("approvals", "")</span><span class="list__main"><span class="list__title">Risky actions wait</span><span class="list__sub">Approvals land in the inbox and stay until a human decides.</span></span></li>
+						</ul>
+					</div>
+				</section>
+			</div>
+			<div class="span-4 stack">
+				<section class="card">
+					<div class="card__head"><h2 class="card__title">Setup record</h2></div>
+					<div class="card__body readiness">
+						<div class="readiness__item" data-done={ yesNo(view.ProviderConfigured, "true", "false") }><span class="readiness__mark">@icon("check", "")</span><span class="readiness__main"><span class="readiness__title">AI provider</span><span class="readiness__body">{ countLabel(view.ProviderCount, "provider", "providers") } connected</span></span></div>
+						<div class="readiness__item" data-done={ yesNo(view.KnowledgeAdded, "true", "false") }><span class="readiness__mark">@icon("check", "")</span><span class="readiness__main"><span class="readiness__title">Knowledge</span><span class="readiness__body">{ countLabel(view.SourceCount, "source", "sources") } added</span></span></div>
+						<div class="readiness__item" data-done="true"><span class="readiness__mark">@icon("check", "")</span><span class="readiness__main"><span class="readiness__title">Workspace</span><span class="readiness__body">Owner account created</span></span></div>
+					</div>
+				</section>
+				<section class="card"><div class="card__body stack stack--sm"><h2 class="card__title">Embed the widget</h2><p class="muted small">Copy the snippet from settings when you are ready to put the desk on your site.</p><a class="btn btn--secondary btn--sm" href="/dashboard/settings?section=widget">Widget settings</a></div></section>
+			</div>
 		</div>
-		<div>
-			<label for="baseUrl">Base URL (optional)</label>
-			<input id="baseUrl" name="baseUrl" type="text" placeholder="https://…"/>
+	} else {
+		<div class="onboard">
+			<aside class="onboard__rail" aria-label="Setup progress">
+				<p class="eyebrow">Setup</p>
+				@onboardingStep(1, "Connect a model", "Cloud key or local Ollama.", stepState(1, view))
+				@onboardingStep(2, "Add knowledge", "A URL is enough to start.", stepState(2, view))
+				@onboardingStep(3, "Open the desk", "Tune anything later.", stepState(3, view))
+			</aside>
+			<div class="onboard__main">
+				<section class="card onboard__card">
+					<div class="onboard__card-head row row--between">
+						<div>
+							<h2 class="onboard__card-title">Connect an AI provider</h2>
+							<p class="onboard__card-sub">The desk works without one, but every conversation will route to a human. Keys are encrypted with AES-256-GCM using your deployment secret.</p>
+						</div>
+						if view.ProviderConfigured {
+							@statusBadge("ready")
+						} else {
+							<span class="badge">pending</span>
+						}
+					</div>
+					@ProviderForm("/onboarding/provider", ProviderCatalog())
+				</section>
+				<section class="card onboard__card">
+					<div class="onboard__card-head row row--between">
+						<div>
+							<h2 class="onboard__card-title">Add your first knowledge source</h2>
+							<p class="onboard__card-sub">Paste a public help page. The crawler respects robots boundaries through SSRF-safe fetching, chunks the page, and indexes it for hybrid retrieval.</p>
+						</div>
+						if view.KnowledgeAdded {
+							@statusBadge("ready")
+						} else {
+							<span class="badge">pending</span>
+						}
+					</div>
+					<form method="post" action="/onboarding/add" class="form">
+						<div class="field">
+							<label class="field__label" for="knowledgeUrl">Help page URL</label>
+							<input class="input" id="knowledgeUrl" name="url" type="url" value="https://example.com/help" required/>
+							<span class="field__hint">One page is enough for the first run. Add more sources from the knowledge page.</span>
+						</div>
+						<div class="form__actions">
+							<button class="btn btn--primary" type="submit">Add</button>
+							<a class="btn btn--ghost" href="/dashboard/knowledge">Open knowledge</a>
+						</div>
+					</form>
+				</section>
+				<section class="card onboard__card">
+					<div class="onboard__card-head">
+						<h2 class="onboard__card-title">Finish setup</h2>
+						<p class="onboard__card-sub">You can re-run any of this from settings. Finishing marks the workspace as onboarded; it does not lock anything.</p>
+					</div>
+					<form method="post" action="/onboarding/finish" class="row">
+						<button class="btn btn--primary" type="submit">Finish setup @icon("arrow-right", "")</button>
+						<a class="btn btn--ghost" href="/dashboard">Skip for now</a>
+					</form>
+				</section>
+			</div>
 		</div>
-		<button type="submit">Save provider</button>
+	}
+}
+
+func stepState(num int, view OnboardingView) string {
+	current := currentOnboardingStep(view)
+	if num < current {
+		return "is-done"
+	}
+	if num == current {
+		return "is-current"
+	}
+	return ""
+}
+
+templ ProviderForm(action string, options []ProviderOption) {
+	<form method="post" action={ action } class="form">
+		<div class="form-row">
+			<div class="field">
+				<label class="field__label" for="provider">Provider</label>
+				<select class="select" id="provider" name="providerId">
+					for _, option := range options {
+						<option value={ option.ID }>{ option.Label }</option>
+					}
+				</select>
+			</div>
+			<div class="field">
+				<label class="field__label" for="displayName">Display name <span class="field__optional">optional</span></label>
+				<input class="input" id="displayName" name="displayName" type="text" placeholder="OpenAI production"/>
+			</div>
+		</div>
+		<div class="form-row">
+			<div class="field">
+				<label class="field__label" for="apiKey">API key</label>
+				<input class="input" id="apiKey" name="apiKey" type="password" autocomplete="off" placeholder="Stored encrypted, never shown again"/>
+				<span class="field__hint">Leave blank for Ollama or a keyless compatible endpoint.</span>
+			</div>
+			<div class="field">
+				<label class="field__label" for="baseUrl">Base URL <span class="field__optional">optional</span></label>
+				<input class="input" id="baseUrl" name="baseUrl" type="text" inputmode="url" placeholder="https://api.openai.com/v1"/>
+				<span class="field__hint">Required for Ollama and most OpenAI-compatible endpoints.</span>
+			</div>
+		</div>
+		<div class="form__actions">
+			<button class="btn btn--primary" type="submit">Save provider</button>
+		</div>
 	</form>
 }
 
-templ OnboardingPage(view OnboardingView) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Set up ChasteDesk")
-	</head>
-	<body>
-		if view.Complete {
-			<main style="max-width: 640px;">
-				<section class="card">
-					<h1>Your desk is ready</h1>
-					<p class="muted">Head to the inbox to watch your AI handle conversations, or keep tuning knowledge and providers in settings.</p>
-					<a href="/dashboard/knowledge">Open knowledge</a>
-				</section>
-			</main>
-		} else {
-			<main style="max-width: 640px;">
-				<h1>Let’s get your support desk running</h1>
-				<p class="muted">I’ll check your setup, connect an AI provider, and index your first knowledge source.</p>
-				<div class="stack">
-					<section class="card">
-						<h2>
-							Step 1 — Connect an AI provider
-							if view.ProviderConfigured {
-								<span class="badge success">done</span>
-							} else {
-								<span class="badge">pending</span>
-							}
-						</h2>
-						@ProviderForm("/onboarding/provider")
-					</section>
-					<section class="card">
-						<h2>
-							Step 2 — Add your first knowledge source
-							if view.KnowledgeAdded {
-								<span class="badge success">done</span>
-							} else {
-								<span class="badge">pending</span>
-							}
-						</h2>
-						<p class="muted">This can be a public help page — the AI will cite it when answering customers.</p>
-						<form method="post" action="/onboarding/add" class="row">
-							<div style="flex: 1;">
-								<label for="knowledgeUrl">Knowledge URL</label>
-								<input id="knowledgeUrl" name="url" type="url" value="https://example.com/help"/>
-							</div>
-							<button type="submit">Add</button>
-							<a href="/dashboard/knowledge">Open knowledge</a>
-						</form>
-					</section>
-					<section class="card">
-						<h2>Step 3 — Finish</h2>
-						<p class="muted">You can change everything later in settings. The AI only does what your resolution policy allows.</p>
-						<form method="post" action="/onboarding/finish">
-							<button type="submit">Finish setup</button>
-						</form>
-					</section>
+templ knowledgeSummary(view KnowledgeView) {
+	<div class="knowledge-summary">
+		<div class="card stat"><div class="stat__top"><span class="stat__label">Sources</span><span class="stat__icon">@icon("book", "")</span></div><span class="stat__value">{ itoa(view.TotalSources) }</span><span class="stat__hint">{ itoa(view.ReadySources) } ready · { itoa(view.ProcessingSources) } processing</span></div>
+		<div class="card stat"><div class="stat__top"><span class="stat__label">Chunks indexed</span><span class="stat__icon">@icon("database", "")</span></div><span class="stat__value">{ itoa(view.TotalChunks) }</span><span class="stat__hint">Passages available for retrieval</span></div>
+		<div class="card stat"><div class="stat__top"><span class="stat__label">Vector search</span><span class="stat__icon">@icon("activity", "")</span></div><span class="stat__value">{ yesNo(view.VectorSearch, "On", "FTS only") }</span><span class="stat__hint">{ yesNo(view.VectorSearch, "Embeddings available", "Degrades to full-text search") }</span></div>
+		<div class={ "card stat " + yesNo(view.FailedSources > 0, "", "stat--accent") }><div class="stat__top"><span class="stat__label">Needs attention</span><span class="stat__icon">@icon("alert", "")</span></div><span class="stat__value">{ itoa(view.FailedSources) }</span><span class="stat__hint">{ yesNo(view.FailedSources > 0, "Inspect and reindex", "Nothing failed") }</span></div>
+	</div>
+}
+
+templ knowledgeContent(view KnowledgeView) {
+	@pageHead("Knowledge", "What the desk is allowed to know. Public sources can answer customers; internal-only sources are available to the agent but never quoted to customers.", nil)
+	if view.Message != "" {
+		@flashMessage(view.Message, "success")
+	}
+	@knowledgeSummary(view)
+	if view.CanWrite {
+		<section class="card">
+			<div class="card__head">
+				<div>
+					<h2 class="card__title">Add source</h2>
+					<p class="card__sub">Crawl a page, upload a document, or paste text directly.</p>
 				</div>
-			</main>
-		}
-	</body>
-	</html>
-}
-
-templ KnowledgePage(sources []SourceView, message string) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Knowledge — ChasteDesk")
-		<script src="/static/htmx.min.js" defer></script>
-	</head>
-	<body>
-		<main>
-			<h1>Knowledge</h1>
-			if message != "" {
-				<p class="badge success">{ message }</p>
-			}
-			<section class="card" style="margin-bottom: 24px;">
-				<h2>Add a source</h2>
-				<form method="post" action="/dashboard/knowledge/add" enctype="multipart/form-data" class="stack">
-					<div>
-						<label for="url">Website URL</label>
-						<input id="url" name="url" type="url" placeholder="https://example.com/help"/>
-					</div>
-					<div>
-						<label for="file">…or upload a file (pdf, md, txt, docx)</label>
-						<input id="file" name="file" type="file" accept=".pdf,.md,.txt,.docx"/>
-					</div>
-					<div>
-						<label for="name">…or paste text</label>
-						<input id="name" name="name" type="text" placeholder="Title"/>
-						<textarea id="text" name="text" rows="4" placeholder="Paste the content…"></textarea>
-					</div>
-					<div class="row">
-						<div style="width: 220px;">
-							<label for="scope">Scope</label>
-							<select id="scope" name="scope">
-								<option value="public">Public (customer-facing)</option>
-								<option value="internal">Internal only</option>
-							</select>
+				<div class="source-tabs" role="tablist" aria-label="Source type">
+					<a class={ tabClass(view.AddMode, "url") } href="/dashboard/knowledge?add=url" role="tab" aria-selected={ yesNo(view.AddMode == "url", "true", "false") }>@icon("globe", "") Website</a>
+					<a class={ tabClass(view.AddMode, "file") } href="/dashboard/knowledge?add=file" role="tab" aria-selected={ yesNo(view.AddMode == "file", "true", "false") }>@icon("upload", "") File</a>
+					<a class={ tabClass(view.AddMode, "text") } href="/dashboard/knowledge?add=text" role="tab" aria-selected={ yesNo(view.AddMode == "text", "true", "false") }>@icon("file", "") Pasted text</a>
+				</div>
+			</div>
+			<div class="card__body source-add">
+				if view.AddMode == "file" {
+					<form method="post" action="/dashboard/knowledge/add" enctype="multipart/form-data" class="form">
+						<div class="form-row">
+							<div class="field">
+								<label class="field__label" for="file">Document</label>
+								<div class="file-input">
+									<input id="file" name="file" type="file" accept=".pdf,.md,.txt,.docx" required/>
+									<span>PDF, Markdown, plain text, or DOCX · max 10 MiB · magic-byte validated</span>
+								</div>
+							</div>
+							<div class="field">
+								<label class="field__label" for="fileScope">Scope</label>
+								<select class="select" id="fileScope" name="scope"><option value="public">Public: can be quoted to customers</option><option value="internal">Internal only</option></select>
+							</div>
 						</div>
-						<button type="submit">Add source</button>
-					</div>
-				</form>
-			</section>
-			<section class="card" id="sources-card" hx-get="/dashboard/knowledge" hx-trigger="every 3s" hx-select="#sources-card" hx-swap="outerHTML">
-				<h2>Sources</h2>
-				<table>
-					<thead>
-						<tr>
-							<th>Name</th>
-							<th>Type</th>
-							<th>Status</th>
-							<th>Scope</th>
-							<th>Version</th>
-							<th></th>
-						</tr>
-					</thead>
-					<tbody>
-						for _, source := range sources {
-							<tr data-source-name={ source.Name }>
-								<td>{ source.Name }</td>
-								<td>{ source.Type }</td>
-								<td>
-									if source.Status == "ready" {
-										<span class="badge success">{ source.Status }</span>
-									} else if source.Status == "failed" {
-										<span class="badge warn">{ source.Status }</span>
-									} else {
-										<span class="badge">{ source.Status }</span>
-									}
-									if source.Error != "" {
-										<span class="error-text"> { source.Error }</span>
-									}
-								</td>
-								<td>
-									<form method="post" action="/dashboard/knowledge/scope">
-										<input type="hidden" name="sourceId" value={ source.ID }/>
-										<input type="hidden" name="scope" value={ otherScope(source.Scope) }/>
-										<button class="secondary" type="submit">{ source.Scope }</button>
-									</form>
-								</td>
-								<td>v{ strconv.Itoa(source.Version) }</td>
-								<td style="text-align: right;">
-									<form method="post" action="/dashboard/knowledge/reindex" style="display: inline;">
-										<input type="hidden" name="sourceId" value={ source.ID }/>
-										<button class="secondary" type="submit">Reindex</button>
-									</form>
-									<form method="post" action="/dashboard/knowledge/delete" style="display: inline;">
-										<input type="hidden" name="sourceId" value={ source.ID }/>
-										<button class="danger" type="submit">Delete</button>
-									</form>
-								</td>
-							</tr>
-						}
-						if len(sources) == 0 {
-							<tr>
-								<td colspan="6" class="muted">No sources yet.</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</section>
-		</main>
-	</body>
-	</html>
-}
-
-templ SettingsPage(providers []ProviderView, originsText string, embedSnippet string, message string) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Settings — ChasteDesk")
-	</head>
-	<body>
-		<main style="max-width: 760px;">
-			<h1>Settings</h1>
-			if message != "" {
-				<p class="badge success">{ message }</p>
-			}
-			<div class="stack">
-				<section class="card">
-					<h2>AI providers</h2>
-					<ul style="list-style: none; padding: 0; margin: 0 0 16px;">
-						for _, provider := range providers {
-							<li class="row" style="justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
-								<span>
-									<strong>{ provider.DisplayName }</strong>
-									<span class="muted">({ provider.ProviderID })</span>
-									if provider.KeyLast4 != "" {
-										<span class="badge">key ••••{ provider.KeyLast4 }</span>
-									} else {
-										<span class="badge">no key</span>
-									}
-									if provider.BaseURL != "" {
-										<span class="muted"> { provider.BaseURL }</span>
-									}
-								</span>
-								<span class="row">
-									<form method="post" action="/dashboard/settings/providers/test">
-										<input type="hidden" name="configId" value={ provider.ID }/>
-										<button class="secondary" type="submit">Test</button>
-									</form>
-									<form method="post" action="/dashboard/settings/providers/remove">
-										<input type="hidden" name="configId" value={ provider.ID }/>
-										<button class="danger" type="submit">Remove</button>
-									</form>
-								</span>
-							</li>
-						}
-						if len(providers) == 0 {
-							<li class="muted">No providers configured yet.</li>
-						}
-					</ul>
-					@ProviderForm("/dashboard/settings/providers")
-				</section>
-				<section class="card">
-					<h2>Chat widget</h2>
-					<form method="post" action="/dashboard/settings/widget" class="stack">
-						<div>
-							<label for="origins">Allowed origins (one per line)</label>
-							<textarea id="origins" name="origins" rows="3" placeholder="https://example.com">{ originsText }</textarea>
-						</div>
-						<button type="submit">Save widget settings</button>
+						<div class="form__actions"><button class="btn btn--primary" type="submit">@icon("upload", "") Upload and index</button></div>
 					</form>
-					if embedSnippet != "" {
-						<div>
-							<label>Embed snippet</label>
-							<code style="display: block; word-break: break-all; background: #eef1ef; padding: 8px; border-radius: 8px;">{ embedSnippet }</code>
+				} else if view.AddMode == "text" {
+					<form method="post" action="/dashboard/knowledge/add" class="form">
+						<div class="form-row">
+							<div class="field">
+								<label class="field__label" for="name">Title</label>
+								<input class="input" id="name" name="name" type="text" required maxlength="200" placeholder="Refund policy"/>
+							</div>
+							<div class="field">
+								<label class="field__label" for="textScope">Scope</label>
+								<select class="select" id="textScope" name="scope"><option value="public">Public: can be quoted to customers</option><option value="internal">Internal only</option></select>
+							</div>
+						</div>
+						<div class="field">
+							<label class="field__label" for="text">Content</label>
+							<textarea class="textarea" id="text" name="text" rows="7" required placeholder="Paste the policy, FAQ, or internal note…"></textarea>
+						</div>
+						<div class="form__actions"><button class="btn btn--primary" type="submit">@icon("plus", "") Add and index</button></div>
+					</form>
+				} else {
+					<form method="post" action="/dashboard/knowledge/add" class="form">
+						<div class="form-row">
+							<div class="field">
+								<label class="field__label" for="url">Website URL</label>
+								<input class="input" id="url" name="url" type="url" required placeholder="https://example.com/help"/>
+								<span class="field__hint">One page per source. Redirects are revalidated; private networks are blocked.</span>
+							</div>
+							<div class="field">
+								<label class="field__label" for="urlScope">Scope</label>
+								<select class="select" id="urlScope" name="scope"><option value="public">Public: can be quoted to customers</option><option value="internal">Internal only</option></select>
+							</div>
+						</div>
+						<div class="form__actions"><button class="btn btn--primary" type="submit">@icon("globe", "") Crawl and index</button></div>
+					</form>
+				}
+			</div>
+		</section>
+	}
+	@KnowledgeSourcesCard(view)
+}
+
+templ KnowledgeSourcesCard(view KnowledgeView) {
+	<section class="card card--flush" id="sources-card" hx-get="/dashboard/knowledge/sources" hx-trigger="every 8s, knowledgeRefresh from:body" hx-swap="outerHTML">
+		<div class="card__head"><div><h2 class="card__title">Sources</h2><p class="card__sub">Versioned and org-scoped. Reindexing replaces the previous version atomically.</p></div></div>
+		@KnowledgeSourcesList(view)
+	</section>
+}
+
+templ KnowledgeSourcesList(view KnowledgeView) {
+	<div class="card__body">
+		if len(view.Sources) == 0 {
+			@emptyState(EmptyView{Icon: "book", Title: "No sources yet.", Body: "Add a help page or upload a document. The AI will not answer from thin air. With no sources it escalates to a human."}, nil)
+		} else {
+			<div class="source-list">
+				for _, source := range view.Sources {
+					<article class="source" data-source-name={ source.Name }>
+						<span class="source__type">@icon(sourceIcon(source.Type), "")</span>
+						<div class="source__main">
+							<div class="source__name">
+								<span>{ source.Name }</span>
+								@statusBadge(source.Status)
+								if source.Scope == "internal" {
+									<span class="badge badge--info" data-tone="internal">internal</span>
+								}
+							</div>
+							<div class="source__meta">
+								<span>{ sourceTypeLabel(source.Type) }</span>
+								<span>·</span>
+								<span>v{ itoa(source.Version) }</span>
+								<span>·</span>
+								<span>{ countLabel(source.Chunks, "chunk", "chunks") }</span>
+								if source.Vector {
+									<span>·</span>
+									<span>@icon("activity", "") vector</span>
+								}
+								if source.CreatedAt != "" {
+									<span>·</span>
+									<span>added { source.CreatedAt }</span>
+								}
+							</div>
+							if source.Error != "" {
+								<p class="source__error">{ source.Error }</p>
+							}
+						</div>
+						if view.CanWrite {
+							<div class="source__actions">
+								<form method="post" action="/dashboard/knowledge/scope" class="form--inline">
+									<input type="hidden" name="sourceId" value={ source.ID }/>
+									<input type="hidden" name="scope" value={ otherScope(source.Scope) }/>
+									<button class="source__scope" type="submit" data-scope={ source.Scope } title={ "Switch to " + otherScope(source.Scope) + " scope" }>
+										@icon("shield", "")
+										<span>{ source.Scope }</span>
+									</button>
+								</form>
+								<form method="post" action="/dashboard/knowledge/reindex" class="form--inline">
+									<input type="hidden" name="sourceId" value={ source.ID }/>
+									<button class="icon-btn" type="submit" title="Reindex source" aria-label={ "Reindex " + source.Name }>@icon("refresh", "")</button>
+								</form>
+								<form method="post" action="/dashboard/knowledge/delete" class="form--inline" data-confirm={ "Delete “" + source.Name + "” and its indexed chunks?" }>
+									<input type="hidden" name="sourceId" value={ source.ID }/>
+									<button class="icon-btn" type="submit" title="Delete source" aria-label={ "Delete " + source.Name }>@icon("trash", "")</button>
+								</form>
+							</div>
+						}
+					</article>
+				}
+			</div>
+		}
+	</div>
+}
+
+templ settingsNav(section string) {
+	<nav class="settings-nav" aria-label="Settings sections">
+		<a class={ settingsNavClass(section, "providers") } href="/dashboard/settings">@icon("key", "") AI providers</a>
+		<a class={ settingsNavClass(section, "agent") } href="/dashboard/settings?section=agent">@icon("bot", "") Support agent</a>
+		<a class={ settingsNavClass(section, "widget") } href="/dashboard/settings?section=widget">@icon("message", "") Chat widget</a>
+		<a class={ settingsNavClass(section, "api-keys") } href="/dashboard/settings?section=api-keys">@icon("lock", "") API keys</a>
+		<a class={ settingsNavClass(section, "workspace") } href="/dashboard/settings?section=workspace">@icon("building", "") Workspace</a>
+		<a class={ settingsNavClass(section, "account") } href="/dashboard/settings?section=account">@icon("user", "") Account</a>
+	</nav>
+}
+
+func settingsNavClass(section, item string) string {
+	if section == item {
+		return "is-active"
+	}
+	return ""
+}
+
+templ settingsContent(view SettingsView) {
+	@pageHead("Settings", "Everything the desk runs on. Provider keys are encrypted at rest and returned masked, forever.", nil)
+	<div class="settings-layout">
+		@settingsNav(view.Section)
+		<div class="settings-panel">
+			switch view.Section {
+				case "agent":
+					@agentSettings(view)
+				case "widget":
+					@widgetSettings(view)
+				case "api-keys":
+					@apiKeySettings(view)
+				case "workspace":
+					@workspaceSettings(view)
+				case "account":
+					@accountSettings(view)
+				default:
+					@providerSettings(view)
+			}
+		</div>
+	</div>
+}
+
+templ providerSettings(view SettingsView) {
+	<section class="settings-section">
+		<div class="settings-section__head">
+			<div>
+				<h2 class="settings-section__title">AI providers</h2>
+				<p class="settings-section__sub">Connect one or more providers. The support agent chooses the model; embeddings use whichever provider supports them.</p>
+			</div>
+		</div>
+		<div class="card card--flush">
+			if len(view.Providers) == 0 {
+				<div class="card__body">@emptyState(EmptyView{Icon: "key", Title: "No provider connected", Body: "Without a provider the desk still works: every conversation routes to a human with a clear handoff. Add a key or point at Ollama to let the AI answer."}, nil)</div>
+			} else {
+				for _, provider := range view.Providers {
+					<div class="provider">
+						<span class="provider__logo">{ initial(providerLabel(provider.ProviderID)) }</span>
+						<div class="provider__main">
+							<div class="provider__name">
+								{ provider.DisplayName }
+								if provider.Enabled {
+									<span class="badge badge--success" data-tone="ready">enabled</span>
+								} else {
+									<span class="badge">disabled</span>
+								}
+							</div>
+							<div class="provider__meta">
+								<span>{ provider.ProviderID }</span>
+								<span>·</span>
+								if provider.KeyLast4 != "" {
+									<span>••••{ provider.KeyLast4 }</span>
+								} else {
+									<span>no key</span>
+								}
+								if provider.BaseURL != "" {
+									<span>·</span><span>{ provider.BaseURL }</span>
+								}
+								<span>·</span><span>{ countLabel(provider.ModelCount, "model cached", "models cached") }</span>
+							</div>
+						</div>
+						<div class="provider__actions">
+							<form method="post" action="/dashboard/settings/providers/test">
+								<input type="hidden" name="configId" value={ provider.ID }/>
+								<button class="btn btn--secondary btn--sm" type="submit">Test connection</button>
+							</form>
+							<form method="post" action="/dashboard/settings/providers/remove" data-confirm={ "Remove " + provider.DisplayName + "? The agent will fall back to another provider or escalate." }>
+								<input type="hidden" name="configId" value={ provider.ID }/>
+								<button class="btn btn--danger btn--sm" type="submit">Remove</button>
+							</form>
+						</div>
+					</div>
+				}
+			}
+			<div class="provider-form">
+				<h3 class="card__title" style="margin-bottom: var(--space-sm);">Add or update a provider</h3>
+				@ProviderForm("/dashboard/settings/providers", view.ProviderOptions)
+			</div>
+		</div>
+		<div class="alert alert--info">
+			@icon("shield", "")
+			<div class="alert__body"><strong class="alert__title">Keys never leave the server.</strong> They are encrypted with AES-256-GCM derived from APP_SECRET, never included in page HTML, and redacted from logs. Rotating APP_SECRET requires re-entering keys.</div>
+		</div>
+	</section>
+	<section class="card">
+		<div class="card__head"><div><h2 class="card__title">Chat widget</h2><p class="card__sub">The embedding snippet is signed for this workspace. Copy it from the widget section after saving allowed origins.</p></div><a class="btn btn--secondary btn--sm" href="/dashboard/settings?section=widget">Configure widget</a></div>
+		<div class="card__body">
+			if view.EmbedSnippet != "" {
+				<div class="snippet">
+					<code class="code" id="provider-embed-snippet">{ view.EmbedSnippet }</code>
+					<button type="button" class="btn btn--secondary btn--sm copy-btn" data-copy-target="#provider-embed-snippet"><span data-copy-label>Copy</span></button>
+				</div>
+			}
+		</div>
+	</section>
+}
+
+templ agentSettings(view SettingsView) {
+	<form method="post" action="/dashboard/settings/agent" class="settings-section form">
+		<div class="settings-section__head">
+			<div>
+				<h2 class="settings-section__title">Support agent</h2>
+				<p class="settings-section__sub">The policy is the contract. It decides what the agent may do, when it must stop, and how much it may spend per turn.</p>
+			</div>
+			<button class="btn btn--primary" type="submit">Save policy</button>
+		</div>
+		if view.Agent.ConfiguredProviders == 0 {
+			<div class="alert alert--warn">@icon("alert", "")<div class="alert__body"><strong class="alert__title">No provider yet.</strong> The agent will escalate every conversation. <a class="alert__link" href="/dashboard/settings">Connect one first.</a></div></div>
+		}
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Purpose</h2><p class="card__sub">Written into the system prompt. Keep it narrow and true.</p></div></div>
+			<div class="card__body">
+				<div class="field">
+					<label class="field__label" for="purpose">What this agent is for</label>
+					<textarea class="textarea" id="purpose" name="purpose" rows="4" required>{ view.Agent.Purpose }</textarea>
+					<span class="field__hint">Example: answer product and billing questions from public help docs, and escalate anything about refunds or account deletion.</span>
+				</div>
+			</div>
+		</section>
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Knowledge scopes</h2><p class="card__sub">Internal sources can inform answers but are never quoted to customers.</p></div></div>
+			<div class="card__body stack stack--sm">
+				<label class="checkbox"><input type="checkbox" name="publicScope" value="1" checked?={ view.Agent.PublicScope }/><span><strong>Public sources</strong>: customer-facing help pages and docs.</span></label>
+				<label class="checkbox"><input type="checkbox" name="internalScope" value="1" checked?={ view.Agent.InternalScope }/><span><strong>Internal sources</strong>: runbooks and policies for the agent’s reasoning.</span></label>
+			</div>
+		</section>
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Tools and approvals</h2><p class="card__sub">A tool that is not listed here is refused, even if the model asks for it.</p></div></div>
+			<div class="card__body">
+				for _, tool := range view.Agent.Tools {
+					<div class="tool-mode">
+						<div class="tool-mode__main"><div class="tool-mode__name">{ tool.ID }</div><div class="tool-mode__body">{ tool.Description }</div></div>
+						<label class="sr-only" for={ "tool-" + tool.ID }>{ tool.ID } mode</label>
+						<select class="select" id={ "tool-" + tool.ID } name={ "tool:" + tool.ID }>
+							<option value="autonomous" selected?={ tool.Mode == "autonomous" }>Autonomous</option>
+							<option value="approval_required" selected?={ tool.Mode == "approval_required" }>Needs approval</option>
+							<option value="disabled" selected?={ tool.Mode == "disabled" }>Disabled</option>
+						</select>
+					</div>
+				}
+			</div>
+		</section>
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Escalation</h2><p class="card__sub">Any match stops the run and builds a handoff package for a human.</p></div></div>
+			<div class="card__body">
+				<div class="agent-grid">
+					<div class="field">
+						<label class="field__label" for="threshold">Low-confidence threshold</label>
+						<input class="input" id="threshold" name="threshold" type="number" min="0" max="1" step="0.01" value={ view.Agent.Threshold }/>
+						<span class="field__hint">Between 0 and 1. Higher means it escalates sooner.</span>
+					</div>
+					<div class="field">
+						<label class="field__label" for="keywords">Escalation keywords</label>
+						<input class="input" id="keywords" name="keywords" type="text" value={ view.Agent.Keywords } placeholder="refund, cancel my account, legal"/>
+						<span class="field__hint">Comma-separated, case-insensitive. One keyword is enough.</span>
+					</div>
+				</div>
+			</div>
+		</section>
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Model and budget</h2><p class="card__sub">Per-turn ceilings. The loop stops at the first limit and escalates rather than looping.</p></div></div>
+			<div class="card__body">
+				<div class="agent-grid">
+					<div class="field">
+						<label class="field__label" for="providerId">Provider</label>
+						<select class="select" id="providerId" name="providerId">
+							<option value="">Auto: first enabled provider</option>
+							for _, provider := range view.Agent.Providers {
+								<option value={ provider.ID } selected?={ view.Agent.ProviderID == provider.ID }>{ provider.Label }</option>
+							}
+						</select>
+					</div>
+					<div class="field">
+						<label class="field__label" for="modelId">Model</label>
+						<input class="input" id="modelId" name="modelId" type="text" value={ view.Agent.ModelID } list="model-options" placeholder="Auto: first model the provider reports"/>
+						<datalist id="model-options">
+							for _, group := range view.Agent.ProviderModels {
+								for _, model := range group.Models {
+									<option value={ model.ID }>{ model.DisplayName } ({ group.Label })</option>
+								}
+							}
+						</datalist>
+						<span class="field__hint">Leave blank to use the first model returned by the provider.</span>
+					</div>
+				</div>
+				<div class="form-row" style="margin-top: var(--space-md);">
+					<div class="field"><label class="field__label" for="maxSteps">Max steps</label><input class="input" id="maxSteps" name="maxSteps" type="number" min="1" max="12" value={ view.Agent.MaxSteps }/></div>
+					<div class="field"><label class="field__label" for="maxToolCalls">Max tool calls</label><input class="input" id="maxToolCalls" name="maxToolCalls" type="number" min="0" max="12" value={ view.Agent.MaxToolCalls }/></div>
+					<div class="field"><label class="field__label" for="maxInputTokens">Max input tokens</label><input class="input" id="maxInputTokens" name="maxInputTokens" type="number" min="500" max="64000" step="500" value={ view.Agent.MaxInputTokens }/></div>
+					<div class="field"><label class="field__label" for="maxOutputTokens">Max output tokens</label><input class="input" id="maxOutputTokens" name="maxOutputTokens" type="number" min="100" max="16000" step="100" value={ view.Agent.MaxOutputTokens }/></div>
+				</div>
+			</div>
+			<div class="card__foot"><span class="muted small">Changes are audited as <code>agent.updated</code>.</span><button class="btn btn--primary" type="submit">Save policy</button></div>
+		</section>
+	</form>
+}
+
+templ widgetSettings(view SettingsView) {
+	<section class="settings-section">
+		<div class="settings-section__head">
+			<div>
+				<h2 class="settings-section__title">Chat widget</h2>
+				<p class="settings-section__sub">The widget is a single script tag. It verifies the embedding origin on every request, so copy the snippet from the same origin list you save here.</p>
+			</div>
+		</div>
+		<form method="post" action="/dashboard/settings/widget" class="form">
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Appearance</h2><p class="card__sub">Kept deliberately small: a name, a greeting, one colour, one corner.</p></div></div>
+				<div class="card__body">
+					<div class="form-row">
+						<div class="field"><label class="field__label" for="widgetDisplayName">Display name</label><input class="input" id="widgetDisplayName" name="displayName" type="text" maxlength="60" value={ view.WidgetDisplayName } placeholder="Acme Support"/></div>
+						<div class="field"><label class="field__label" for="widgetGreeting">Greeting</label><input class="input" id="widgetGreeting" name="greeting" type="text" maxlength="160" value={ view.WidgetGreeting } placeholder="Hi, how can we help?"/></div>
+					</div>
+					<div class="form-row" style="margin-top: var(--space-md);">
+						<div class="field"><label class="field__label" for="widgetPrimary">Accent colour</label><div class="color-field"><span class="color-swatch" style={ "background:" + view.WidgetPrimary } aria-hidden="true"></span><input class="input" id="widgetPrimary" name="primaryColor" type="text" maxlength="7" value={ view.WidgetPrimary } placeholder="#d96c3f"/></div><span class="field__hint">Hex colour. The widget computes contrast text automatically.</span></div>
+						<div class="field"><label class="field__label" for="widgetPosition">Launcher position</label><select class="select" id="widgetPosition" name="position"><option value="right" selected?={ view.WidgetPosition != "left" }>Bottom right</option><option value="left" selected?={ view.WidgetPosition == "left" }>Bottom left</option></select></div>
+						<div class="field"><label class="field__label" for="widgetEnabled">Enabled</label><label class="switch"><input id="widgetEnabled" name="enabled" type="checkbox" checked?={ view.WidgetEnabled }/><span class="switch__track"></span><span class="small">Accept new conversations</span></label></div>
+					</div>
+				</div>
+			</section>
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Allowed origins</h2><p class="card__sub">One origin per line, including scheme. Requests with any other Origin are refused.</p></div></div>
+				<div class="card__body">
+					<div class="field">
+						<label class="field__label" for="origins">Origins</label>
+						<textarea class="textarea" id="origins" name="origins" rows="4" placeholder="https://example.com&#10;https://www.example.com">{ view.OriginsText }</textarea>
+					</div>
+				</div>
+			</section>
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Embed snippet</h2><p class="card__sub">Signed for this workspace and its current origins. Re-copy after changing origins.</p></div></div>
+				<div class="card__body">
+					if view.EmbedSnippet != "" {
+						<div class="snippet">
+							<code class="code" id="embed-snippet">{ view.EmbedSnippet }</code>
+							<button type="button" class="btn btn--secondary btn--sm copy-btn" data-copy-target="#embed-snippet"><span data-copy-label>Copy</span></button>
 						</div>
 					}
-				</section>
+				</div>
+				<div class="card__foot"><span class="muted small">Token lifetime is 30 days; re-issue by reloading this page.</span><button class="btn btn--primary" type="submit">Save widget settings</button></div>
+			</section>
+		</form>
+	</section>
+}
+
+templ apiKeySettings(view SettingsView) {
+	<section class="settings-section">
+		<div class="settings-section__head">
+			<div>
+				<h2 class="settings-section__title">API keys</h2>
+				<p class="settings-section__sub">For the REST channel. Keys are shown once, stored as SHA-256 hashes, and revoked by deletion. Each key is limited to 600 requests per minute.</p>
 			</div>
-		</main>
-	</body>
-	</html>
+		</div>
+		if view.CreatedKey != "" {
+			<div class="token-reveal">
+				<strong>Copy this key now.</strong> It will not be shown again.
+				<div class="snippet" style="margin-top: var(--space-sm);">
+					<code class="code" id="created-key">{ view.CreatedKey }</code>
+					<button type="button" class="btn btn--secondary btn--sm copy-btn" data-copy-target="#created-key"><span data-copy-label>Copy</span></button>
+				</div>
+			</div>
+		}
+		<div class="card card--flush">
+			if len(view.APIKeys) == 0 {
+				<div class="card__body">@emptyState(EmptyView{Icon: "lock", Title: "No API keys yet", Body: "Create one only when an external system needs to open conversations. Browser dashboard sessions are separate and cannot be used as API keys."}, nil)</div>
+			} else {
+				for _, key := range view.APIKeys {
+					<div class="api-key">
+						<span class="source__type">@icon("key", "")</span>
+						<div class="api-key__main">
+							<div class="api-key__name">{ key.Name }</div>
+							<div class="api-key__meta">{ key.Prefix }… · created { key.CreatedAt } · last used { key.LastUsed }</div>
+						</div>
+						<form method="post" action="/dashboard/settings/api-keys/revoke" data-confirm={ "Revoke “" + key.Name + "”? Requests using it will fail immediately." }>
+							<input type="hidden" name="keyId" value={ key.ID }/>
+							<button class="btn btn--danger btn--sm" type="submit">Revoke</button>
+						</form>
+					</div>
+				}
+			}
+			<div class="provider-form">
+				<form method="post" action="/dashboard/settings/api-keys" class="form">
+					<div class="form-row">
+						<div class="field">
+							<label class="field__label" for="keyName">Key name</label>
+							<input class="input" id="keyName" name="name" type="text" required maxlength="80" placeholder="Zendesk migration"/>
+							<span class="field__hint">Name it after the system that will use it.</span>
+						</div>
+						<div class="field" style="align-content:end;"><button class="btn btn--primary" type="submit">Create API key</button></div>
+					</div>
+				</form>
+			</div>
+		</div>
+		<div class="alert alert--info">@icon("info", "")<div class="alert__body"><strong class="alert__title">Endpoint reference.</strong> <code>POST /api/v1/conversations</code> with <code>Authorization: Bearer cd_…</code>, then <code>POST /api/v1/conversations/&#123;id&#125;/messages</code>. See <a class="alert__link" href="https://github.com/benaiah-muga/ChasteDesk/blob/go-migration/docs/API.md" target="_blank" rel="noreferrer noopener">docs/API.md</a>.</div></div>
+	</section>
+}
+
+templ workspaceSettings(view SettingsView) {
+	<section class="settings-section">
+		<div class="settings-section__head">
+			<div>
+				<h2 class="settings-section__title">Workspace</h2>
+				<p class="settings-section__sub">One organization per installation. Members share the inbox, knowledge, and audit log; roles decide who can change settings.</p>
+			</div>
+		</div>
+		if view.CurrentRole == "owner" {
+			<form method="post" action="/dashboard/settings/workspace" class="form">
+				<section class="card">
+					<div class="card__head"><div><h2 class="card__title">Identity</h2><p class="card__sub">Shown in the sidebar and on the login screen.</p></div></div>
+					<div class="card__body">
+						<div class="field" style="max-width: 28rem;">
+							<label class="field__label" for="orgName">Workspace name</label>
+							<input class="input" id="orgName" name="orgName" type="text" required maxlength="100" value={ view.OrgName }/>
+						</div>
+					</div>
+					<div class="card__foot"><span class="muted small">Renaming is audited as <code>org.updated</code>.</span><button class="btn btn--primary" type="submit">Save workspace</button></div>
+				</section>
+			</form>
+		}
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Members</h2><p class="card__sub">Roles: owner (everything), admin (settings and audit), agent (inbox and knowledge read).</p></div></div>
+			<div class="card__body">
+				for _, member := range view.Members {
+					<div class="member">
+						@avatar(member.Name, "")
+						<div class="member__main">
+							<div class="member__name">
+								{ member.Name }
+								if member.Self {
+									<span class="scope-chip">you</span>
+								}
+							</div>
+							<div class="member__email">{ member.Email } · joined { member.Joined }</div>
+						</div>
+						<span class="badge">{ roleLabel(member.Role) }</span>
+					</div>
+				}
+			</div>
+		</section>
+		if view.CanManage {
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Invite a teammate</h2><p class="card__sub">This self-hosted build does not send email. Create a one-time link and share it securely.</p></div></div>
+				<div class="card__body">
+					if view.CreatedInviteURL != "" {
+						<div class="token-reveal">
+							<strong>Invite link ready.</strong> Send it to { view.CreatedInvite }. It expires in seven days and can be used once.
+							<div class="snippet" style="margin-top: var(--space-sm);">
+								<code class="code" id="invite-link">{ view.CreatedInviteURL }</code>
+								<button type="button" class="btn btn--secondary btn--sm copy-btn" data-copy-target="#invite-link"><span data-copy-label>Copy</span></button>
+							</div>
+						</div>
+					}
+					<form method="post" action="/dashboard/settings/invite" class="form">
+						<div class="form-row">
+							<div class="field"><label class="field__label" for="inviteEmail">Email</label><input class="input" id="inviteEmail" name="email" type="email" required placeholder="teammate@company.com"/></div>
+							<div class="field"><label class="field__label" for="inviteRole">Role</label><select class="select" id="inviteRole" name="role"><option value="agent">Agent: inbox and knowledge read</option><option value="admin">Admin: settings and audit</option></select></div>
+							<div class="field" style="align-content:end;"><button class="btn btn--primary" type="submit">Create invite link</button></div>
+						</div>
+					</form>
+					if len(view.Invitations) > 0 {
+						<div style="margin-top: var(--space-md); border-top: var(--rule-hairline); padding-top: var(--space-sm);">
+							<div class="context__label">Pending invitations</div>
+							for _, invite := range view.Invitations {
+								<div class="member">
+									@avatar(invite.Email, "avatar--sm")
+									<div class="member__main"><div class="member__name">{ invite.Email }</div><div class="member__email">{ roleLabel(invite.Role) } · expires { invite.Expires }</div></div>
+									<button type="button" class="btn btn--secondary btn--sm copy-btn" data-copy-value={ invite.Link }><span data-copy-label>Copy link</span></button>
+									<form method="post" action="/dashboard/settings/invite/revoke" data-confirm="Revoke this invitation?">
+										<input type="hidden" name="invitationId" value={ invite.ID }/>
+										<button class="btn btn--danger btn--sm" type="submit">Revoke</button>
+									</form>
+								</div>
+							}
+						</div>
+					}
+				</div>
+			</section>
+		}
+		<section class="card">
+			<div class="card__head"><div><h2 class="card__title">Install</h2><p class="card__sub">Useful facts for operators.</p></div></div>
+			<div class="card__body meta-grid">
+				<div><div class="meta__label">Tenancy</div><div class="meta__value">Single organization</div></div>
+				<div><div class="meta__label">License</div><div class="meta__value">AGPL-3.0-only</div></div>
+				<div><div class="meta__label">Your role</div><div class="meta__value">{ roleLabel(view.CurrentRole) }</div></div>
+				<div><div class="meta__label">Audit</div><div class="meta__value"><a class="link" href="/dashboard/audit">Append-only log</a></div></div>
+			</div>
+		</section>
+	</section>
+}
+
+templ KnowledgePage(shell ShellView, view KnowledgeView) {
+	@appShell(shell) {
+		@knowledgeContent(view)
+	}
+}
+
+templ SettingsPage(shell ShellView, view SettingsView) {
+	@appShell(shell) {
+		@settingsContent(view)
+	}
+}
+
+templ OnboardingPage(shell ShellView, view OnboardingView) {
+	@appShell(shell) {
+		@onboardingContent(view)
+	}
+}
+
+templ accountSettings(view SettingsView) {
+	<section class="settings-section">
+		<div class="settings-section__head">
+			<div>
+				<h2 class="settings-section__title">Account</h2>
+				<p class="settings-section__sub">Your sign-in details. Changing the password signs out every other browser; this session stays active.</p>
+			</div>
+		</div>
+		<form method="post" action="/dashboard/settings/account" class="form">
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Profile</h2><p class="card__sub">Shown on replies and in the member list.</p></div></div>
+				<div class="card__body">
+					<div class="form-row">
+						<div class="field"><label class="field__label" for="accountName">Your name</label><input class="input" id="accountName" name="name" type="text" required maxlength="100" value={ view.AccountName }/></div>
+						<div class="field"><label class="field__label" for="accountEmail">Email</label><input class="input" id="accountEmail" type="email" value={ view.CurrentUserEmail } disabled/><span class="field__hint">Email changes are not available in this build.</span></div>
+					</div>
+				</div>
+			</section>
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Password</h2><p class="card__sub">Leave these blank if you only want to change your name.</p></div></div>
+				<div class="card__body">
+					<div class="form-row">
+						<div class="field"><label class="field__label" for="currentPassword">Current password</label><input class="input" id="currentPassword" name="currentPassword" type="password" autocomplete="current-password"/></div>
+						<div class="field"><label class="field__label" for="newPassword">New password</label><input class="input" id="newPassword" name="newPassword" type="password" minlength="8" maxlength="200" autocomplete="new-password"/><span class="field__hint">At least 8 characters. Stored as an Argon2id hash.</span></div>
+					</div>
+				</div>
+				<div class="card__foot"><span class="muted small">Password changes are audited as <code>auth.password_changed</code>.</span><button class="btn btn--primary" type="submit">Save account</button></div>
+			</section>
+		</form>
+	</section>
+}
+
+templ AccountPage(shell ShellView, view SettingsView) {
+	@pageHead("Account", "Your sign-in details and session controls. This page is available to every role.", nil)
+	<div class="settings-panel">
+		@accountSettings(view)
+	</div>
 }

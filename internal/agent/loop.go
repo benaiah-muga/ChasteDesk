@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const HoldingMessage = "I'm checking with a teammate on this one — you'll hear from us shortly."
+const HoldingMessage = "I am checking with a teammate on this one. You will hear from us shortly."
 
 type RunContext struct {
 	OrgID          string
@@ -434,11 +434,12 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 		item := t.evidence[n-1]
 		citations = append(citations, Citation{Marker: fmt.Sprintf("E%d", n), ChunkID: item.ChunkID})
 		citationsJSON = append(citationsJSON, map[string]any{
-			"chunkId":  item.ChunkID,
-			"sourceId": item.SourceID,
-			"version":  item.Version,
-			"locator":  item.Locator,
-			"quote":    truncate(item.Content, 200),
+			"chunkId":    item.ChunkID,
+			"sourceId":   item.SourceID,
+			"sourceName": item.SourceName,
+			"version":    item.Version,
+			"locator":    item.Locator,
+			"quote":      truncate(item.Content, 200),
 		})
 	}
 	encodedCitations, err := json.Marshal(citationsJSON)
@@ -448,6 +449,11 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 	if _, err := t.deps.Pool.Exec(t.ctx,
 		`insert into messages (org_id, conversation_id, role, content, citations) values ($1, $2, 'agent_ai', $3, $4::jsonb)`,
 		t.rc.OrgID, t.rc.ConversationID, *answerText, string(encodedCitations)); err != nil {
+		return TurnResult{}, err
+	}
+	if _, err := t.deps.Pool.Exec(t.ctx,
+		`update conversations set first_response_at = coalesce(first_response_at, now()), updated_at = now() where id = $1`,
+		t.rc.ConversationID); err != nil {
 		return TurnResult{}, err
 	}
 	status := "completed"

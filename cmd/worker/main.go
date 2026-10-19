@@ -45,13 +45,13 @@ func run() error {
 	handlers := ingest.Handlers(ingest.Deps{Pool: pool, UploadsDir: cfg.UploadsDir})
 	names := make([]string, 0, len(handlers))
 	for name, handler := range handlers {
-		jobs.Work(ctx, name, 2, handler)
+		jobs.Work(ctx, name, cfg.WorkerConcurrency, handler)
 		names = append(names, name)
 	}
 	engine := retrieval.NewEngine(pool)
-	jobs.Work(ctx, "execute-action", 2, agent.ExecuteActionHandler(pool, engine))
-	jobs.Work(ctx, "ai-respond", 2, agent.RespondHandler(pool, cfg.AppSecret, engine))
-	jobs.Work(ctx, "analytics-rollup", 2, analytics.Handler(pool))
+	jobs.Work(ctx, "execute-action", cfg.WorkerConcurrency, agent.ExecuteActionHandler(pool, engine))
+	jobs.Work(ctx, "ai-respond", cfg.WorkerConcurrency, agent.RespondHandler(pool, cfg.AppSecret, engine))
+	jobs.Work(ctx, "analytics-rollup", 1, analytics.Handler(pool))
 	names = append(names, "execute-action", "ai-respond", "analytics-rollup")
 	logger.Info("worker started", "queues", names)
 	<-ctx.Done()

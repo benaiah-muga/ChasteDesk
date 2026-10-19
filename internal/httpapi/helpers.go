@@ -16,12 +16,30 @@ var emailRe = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 
 func (s *Server) respondError(w http.ResponseWriter, r *http.Request, err error) {
 	var ae *apperr.Error
+	status := http.StatusInternalServerError
+	code := "internal"
+	message := "internal error"
 	if errors.As(err, &ae) {
-		writeErrorBody(w, ae.HTTPStatus, ae.Code, ae.Message)
+		status = ae.HTTPStatus
+		code = ae.Code
+		message = ae.Message
+	} else {
+		s.logger.Error("unhandled route error", "error", err, "path", r.URL.Path)
+	}
+	if isPagePath(r.URL.Path) {
+		title := "Something went wrong"
+		if status == http.StatusNotFound {
+			title = "Off the desk"
+		}
+		s.renderPageError(w, r, status, title, message)
 		return
 	}
-	s.logger.Error("unhandled route error", "error", err, "path", r.URL.Path)
-	writeErrorBody(w, http.StatusInternalServerError, "internal", "internal error")
+	writeErrorBody(w, status, code, message)
+}
+
+func isPagePath(path string) bool {
+	return path == "/login" || path == "/setup" || path == "/onboarding" ||
+		strings.HasPrefix(path, "/dashboard")
 }
 
 func decodeBody[T any](r *http.Request) (T, error) {

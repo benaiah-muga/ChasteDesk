@@ -50,7 +50,7 @@ export async function executeApprovedAction(pool: pg.Pool, data: ExecuteActionDa
     await writeAuditPool(pool, action.org_id, { actorType: "agent", actorId: action.agent_id, type: "action.failed", targetType: "action", targetId: action.id, payload: { error: result.error ?? "failed" } });
     await pool.query(
       `insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'system', $3)`,
-      [action.org_id, action.conversation_id, "The requested action could not be completed — escalating to a teammate."],
+      [action.org_id, action.conversation_id, "The requested action could not be completed - escalating to a teammate."],
     );
     await pool.query("update conversations set status = 'awaiting_human', updated_at = now() where id = $1", [action.conversation_id]);
     return;
@@ -77,7 +77,7 @@ export async function executeApprovedAction(pool: pg.Pool, data: ExecuteActionDa
   if (verification.passed) {
     await pool.query(
       `insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'agent_ai', $3)`,
-      [action.org_id, action.conversation_id, "Done — I've taken care of that for you."],
+      [action.org_id, action.conversation_id, "Done - I've taken care of that for you."],
     );
   }
 }

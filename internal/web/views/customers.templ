@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+package views
+
+type CustomerRowView struct {
+	ID            string
+	Name          string
+	Email         string
+	Initial       string
+	Conversations int
+	Open          int
+	LastSeen      string
+	LastStatus    string
+}
+
+type CustomersView struct {
+	Customers []CustomerRowView
+	Query     string
+	Total     int
+	Open      int
+}
+
+type CustomerConversationView struct {
+	ID        string
+	Status    string
+	Channel   string
+	CreatedAt string
+	Preview   string
+}
+
+type CustomerDetailView struct {
+	ID            string
+	Name          string
+	Email         string
+	Initial       string
+	CreatedAt     string
+	Attributes    []InboxAttributeView
+	Conversations []CustomerConversationView
+	OpenCount     int
+	TotalCount    int
+}
+
+templ customersContent(view CustomersView) {
+	@pageHead("Customers", "Everyone who has ever started a conversation. Attributes come from the widget or the API; the AI sees only the current customer.", nil)
+	<div class="toolbar">
+		<form method="get" action="/dashboard/customers" class="search" role="search">
+			@icon("search", "")
+			<input type="search" name="q" value={ view.Query } placeholder="Search name or email" aria-label="Search customers"/>
+		</form>
+		<div class="row row--tight">
+			<span class="pill pill--muted">{ countLabel(view.Total, "customer", "customers") }</span>
+			<span class="pill">{ itoa(view.Open) } open conversations</span>
+		</div>
+	</div>
+	<section class="card card--flush">
+		if len(view.Customers) == 0 {
+			<div class="card__body">
+				@emptyState(EmptyView{Icon: "users", Title: noCustomersTitle(view), Body: noCustomersBody(view)}, nil)
+			</div>
+		} else {
+			<div class="list">
+				for _, customer := range view.Customers {
+					<a class="list__item list__item--link" href={ "/dashboard/customers/" + customer.ID }>
+						@avatar(customer.Name, "")
+						<span class="list__main">
+							<span class="list__title">
+								<span class="truncate">{ stringOr(customer.Name, "Website visitor") }</span>
+								if customer.Open > 0 {
+									@statusBadge("awaiting_human")
+								}
+							</span>
+							<span class="list__sub">{ stringOr(customer.Email, "No email captured") }</span>
+						</span>
+						<span class="list__aside">
+							<span>{ countLabel(customer.Conversations, "conversation", "conversations") }</span>
+							<span>{ customer.LastSeen }</span>
+						</span>
+						<span class="needs__go">@icon("chevron-right", "")</span>
+					</a>
+				}
+			</div>
+		}
+	</section>
+}
+
+func noCustomersTitle(view CustomersView) string {
+	if view.Query != "" {
+		return "No customers match"
+	}
+	return "No customers yet"
+}
+
+func noCustomersBody(view CustomersView) string {
+	if view.Query != "" {
+		return "Try a shorter name or email. Customer records are created automatically on the first message."
+	}
+	return "When a visitor messages the widget or an external system opens an API conversation, the customer record appears here."
+}
+
+templ customerDetailContent(view CustomerDetailView) {
+	@pageHead(stringOr(view.Name, "Customer"), stringOr(view.Email, "No email captured") + " · first seen " + view.CreatedAt, nil)
+	<div class="split">
+		<section class="card card--flush">
+			<div class="card__head"><div><h2 class="card__title">Conversations</h2><p class="card__sub">{ countLabel(view.TotalCount, "conversation", "conversations") } · { itoa(view.OpenCount) } still open.</p></div></div>
+			if len(view.Conversations) == 0 {
+				<div class="card__body"><div class="empty"><div class="empty__icon">@icon("inbox", "")</div><h2 class="empty__title">No conversations yet</h2><p class="empty__body">This customer record exists, but there is no thread attached to it.</p></div></div>
+			} else {
+				<div class="list">
+					for _, conversation := range view.Conversations {
+						<a class="list__item list__item--link" href={ "/dashboard/inbox/" + conversation.ID }>
+							<span class="source__type">@icon("message", "")</span>
+							<span class="list__main">
+								<span class="list__title"><span class="truncate">{ conversation.Preview }</span>@statusBadge(conversation.Status)</span>
+								<span class="list__sub">{ conversation.Channel } · { conversation.CreatedAt }</span>
+							</span>
+							<span class="needs__go">@icon("chevron-right", "")</span>
+						</a>
+					}
+				</div>
+			}
+		</section>
+		<div class="stack">
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Profile</h2><p class="card__sub">Attributes supplied by the channel.</p></div></div>
+				<div class="card__body">
+					if len(view.Attributes) == 0 {
+						<p class="muted small">No attributes captured. The widget can send a name and email; API customers can include an attributes object.</p>
+					} else {
+						for _, attr := range view.Attributes {
+							<div class="attribute"><span class="attribute__key">{ attr.Key }</span><span class="attribute__value">{ attr.Value }</span></div>
+						}
+					}
+				</div>
+			</section>
+			<section class="card">
+				<div class="card__head"><h2 class="card__title">Privacy</h2></div>
+				<div class="card__body"><p class="muted small">Customer data stays in your Postgres instance. The repository layer scopes every query by organization; no customer lookup can cross a tenant boundary.</p></div>
+			</section>
+		</div>
+	</div>
+}
+
+templ CustomersPage(shell ShellView, view CustomersView) {
+	@appShell(shell) {
+		@customersContent(view)
+	}
+}
+
+templ CustomerDetailPage(shell ShellView, view CustomerDetailView) {
+	@appShell(shell) {
+		@customerDetailContent(view)
+	}
+}

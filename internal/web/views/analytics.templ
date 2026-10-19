@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 package views
 
+import "fmt"
+
 type AnalyticsCardView struct {
 	Total        string
 	AIResolution string
@@ -14,135 +16,188 @@ type AnalyticsTrendPoint struct {
 	Total int
 }
 
-type AuditEventView struct {
-	ID        int64
-	Type      string
-	ActorType string
-	ActorID   string
-	Target    string
-	Payload   string
-	CreatedAt string
+type ChartPointView struct {
+	X     float64
+	Y     float64
+	Total int
+	Date  string
+	Label string
 }
 
-templ AnalyticsPage(cards *AnalyticsCardView, trend []AnalyticsTrendPoint) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Analytics — ChasteDesk")
-	</head>
-	<body>
-		<main>
-			<h1>Analytics</h1>
-			if cards == nil {
-				<p class="muted">No analytics yet — data appears as conversations resolve.</p>
-			} else {
-				<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px;">
-					<div class="card" aria-label="Total conversations" style="margin: 0;">
-						<div class="muted" style="font-size: 12px;">Total conversations</div>
-						<div style="font-size: 26px; font-weight: 600;">{ cards.Total }</div>
-					</div>
-					<div class="card" aria-label="AI resolution rate" style="margin: 0;">
-						<div class="muted" style="font-size: 12px;">AI resolution rate</div>
-						<div style="font-size: 26px; font-weight: 600;">{ cards.AIResolution }</div>
-					</div>
-					<div class="card" aria-label="Escalation rate" style="margin: 0;">
-						<div class="muted" style="font-size: 12px;">Escalation rate</div>
-						<div style="font-size: 26px; font-weight: 600;">{ cards.Escalation }</div>
-					</div>
-					<div class="card" aria-label="Median first response" style="margin: 0;">
-						<div class="muted" style="font-size: 12px;">Median first response</div>
-						<div style="font-size: 26px; font-weight: 600;">{ cards.MedianFirst }</div>
-					</div>
-					<div class="card" aria-label="Median resolution" style="margin: 0;">
-						<div class="muted" style="font-size: 12px;">Median resolution</div>
-						<div style="font-size: 26px; font-weight: 600;">{ cards.MedianRes }</div>
-					</div>
-				</div>
-				if len(trend) > 0 {
-					<section class="card">
-						<h2>14-day conversation trend</h2>
-						<table>
-							<thead>
-								<tr><th>Date</th><th>Conversations</th></tr>
-							</thead>
-							<tbody>
-								for _, point := range trend {
-									<tr><td>{ point.Date }</td><td>{ point.Total }</td></tr>
-								}
-							</tbody>
-						</table>
-					</section>
-				}
-			}
-		</main>
-	</body>
-	</html>
+type TrendChartView struct {
+	Path       string
+	Area       string
+	Points     []ChartPointView
+	TopLabel   string
+	MidLabel   string
+	StartLabel string
+	MidDate    string
+	EndLabel   string
+	HasData    bool
 }
 
-templ AuditPage(events []AuditEventView, typeFilter string, q string) {
-	<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		@baseHead("Audit log — ChasteDesk")
-	</head>
-	<body>
-		<main>
-			<h1>Audit log</h1>
-			<p class="muted">Append-only record of security-relevant actions. Payloads are redacted.</p>
-			<section class="card">
-				<form method="get" action="/dashboard/audit" class="row">
-					<div style="flex: 1;">
-						<label for="type">Type</label>
-						<input id="type" name="type" type="text" value={ typeFilter } placeholder="run.escalated"/>
-					</div>
-					<div style="flex: 1;">
-						<label for="q">Search</label>
-						<input id="q" name="q" type="text" value={ q } placeholder="type or target"/>
-					</div>
-					<div>
-						<button type="submit">Filter</button>
-					</div>
-				</form>
-			</section>
-			<section class="card">
-				if len(events) == 0 {
-					<p class="muted">No audit events match this filter.</p>
-				} else {
-					<table>
-						<thead>
-							<tr><th>When</th><th>Type</th><th>Actor</th><th>Target</th><th>Payload</th></tr>
-						</thead>
-						<tbody>
-							for _, event := range events {
-								<tr>
-									<td class="muted">{ event.CreatedAt }</td>
-									<td><code>{ event.Type }</code></td>
-									<td>{ event.ActorType }{ actorSuffix(event.ActorID) }</td>
-									<td>{ event.Target }</td>
-									<td>
-										if event.Payload != "" {
-											<details>
-												<summary>View</summary>
-												<pre style="white-space: pre-wrap; font-size: 12px;">{ event.Payload }</pre>
-											</details>
-										} else {
-											<span class="muted">—</span>
-										}
-									</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				}
-			</section>
-		</main>
-	</body>
-	</html>
+type StatusDistView struct {
+	Label   string
+	Count   int
+	Percent int
+	Tone    string
 }
 
-func actorSuffix(actorID string) string {
-	if actorID == "" {
-		return ""
+type AnalyticsView struct {
+	Cards       *AnalyticsCardView
+	Trend       []AnalyticsTrendPoint
+	Chart       TrendChartView
+	Days        int
+	StatusDist  []StatusDistView
+	LatestDate  string
+	TotalOpen   int
+	CanRollup   bool
+}
+
+func BuildTrendChart(points []AnalyticsTrendPoint) TrendChartView {
+	const left, right, top, bottom = 46.0, 748.0, 22.0, 192.0
+	chart := TrendChartView{}
+	if len(points) == 0 {
+		chart.StartLabel = "-"
+		chart.EndLabel = "-"
+		return chart
 	}
-	return " (" + actorID + ")"
+	max := 0
+	for _, point := range points {
+		if point.Total > max {
+			max = point.Total
+		}
+	}
+	if max < 4 {
+		max = 4
+	}
+	step := 0.0
+	if len(points) > 1 {
+		step = (right - left) / float64(len(points)-1)
+	}
+	path := ""
+	area := ""
+	labelEvery := len(points) / 4
+	if labelEvery < 1 {
+		labelEvery = 1
+	}
+	for index, point := range points {
+		x := left + float64(index)*step
+		y := bottom - (float64(point.Total)/float64(max))*(bottom-top)
+		chart.Points = append(chart.Points, ChartPointView{
+			X: x, Y: y, Total: point.Total, Date: point.Date, Label: shortDate(point.Date),
+		})
+		if index == 0 {
+			path += fmt.Sprintf("M %.2f %.2f", x, y)
+			area += fmt.Sprintf("M %.2f %.2f", x, bottom)
+		} else {
+			path += fmt.Sprintf(" L %.2f %.2f", x, y)
+		}
+		area += fmt.Sprintf(" L %.2f %.2f", x, y)
+		if index == len(points)-1 {
+			area += fmt.Sprintf(" L %.2f %.2f Z", x, bottom)
+		}
+		_ = labelEvery
+	}
+	chart.Path = path
+	chart.Area = area
+	chart.TopLabel = fmt.Sprintf("%d", max)
+	chart.MidLabel = fmt.Sprintf("%d", max/2)
+	chart.HasData = true
+	chart.StartLabel = shortDate(points[0].Date)
+	chart.EndLabel = shortDate(points[len(points)-1].Date)
+	chart.MidDate = shortDate(points[len(points)/2].Date)
+	return chart
+}
+
+templ analyticsContent(view AnalyticsView) {
+	@pageHead("Analytics", "How the desk is doing, measured from the same rows the product uses. Medians are computed per UTC day, not estimated.", nil)
+	<div class="toolbar">
+		<div class="range" role="group" aria-label="Range">
+			<a class={ rangeClass(view.Days, 7) } href="/dashboard/analytics?days=7">7 days</a>
+			<a class={ rangeClass(view.Days, 14) } href="/dashboard/analytics?days=14">14 days</a>
+			<a class={ rangeClass(view.Days, 30) } href="/dashboard/analytics?days=30">30 days</a>
+		</div>
+		if view.CanRollup {
+			<form method="post" action="/dashboard/analytics/rollup" class="form--inline">
+				<input type="hidden" name="days" value={ itoa(view.Days) }/>
+				<button class="btn btn--secondary btn--sm" type="submit">@icon("refresh", "") Recompute now</button>
+			</form>
+		}
+	</div>
+	if view.Cards == nil {
+		<section class="card">
+			<div class="card__body">
+				@emptyState(EmptyView{Icon: "chart", Title: "No analytics yet", Body: "Metrics appear once the worker has rolled up a UTC day. Seed a few conversations, or press Recompute now to calculate today."}, nil)
+			</div>
+		</section>
+	} else {
+		<div class="stat-row stat-row--five">
+			<div class="card stat"><div class="stat__top"><span class="stat__label">Total conversations</span><span class="stat__icon">@icon("message", "")</span></div><span class="stat__value">{ view.Cards.Total }</span><span class="stat__hint">Created on the latest rolled-up day</span></div>
+			<div class="card stat stat--accent"><div class="stat__top"><span class="stat__label">AI resolution rate</span><span class="stat__icon">@icon("bot", "")</span></div><span class="stat__value">{ view.Cards.AIResolution }</span><span class="stat__hint">Resolved with no human reply or approved action</span></div>
+			<div class="card stat"><div class="stat__top"><span class="stat__label">Escalation rate</span><span class="stat__icon">@icon("alert", "")</span></div><span class="stat__value">{ view.Cards.Escalation }</span><span class="stat__hint">Share of conversations handed to a human</span></div>
+			<div class="card stat"><div class="stat__top"><span class="stat__label">Median first response</span><span class="stat__icon">@icon("clock", "")</span></div><span class="stat__value">{ view.Cards.MedianFirst }</span><span class="stat__hint">From conversation start to first agent message</span></div>
+			<div class="card stat"><div class="stat__top"><span class="stat__label">Median resolution</span><span class="stat__icon">@icon("check-circle", "")</span></div><span class="stat__value">{ view.Cards.MedianRes }</span><span class="stat__hint">From conversation start to resolved</span></div>
+		</div>
+		<div class="split">
+			<section class="card chart">
+				<div class="chart__head">
+					<div><h2 class="chart__title">Conversations per day</h2><p class="chart__sub">{ itoa(view.Days) }-day window · latest rollup { view.LatestDate }</p></div>
+					<span class="scope-chip">UTC days</span>
+				</div>
+				if view.Chart.HasData {
+					<svg class="chart__svg" viewBox="0 0 760 220" role="img" aria-label={ fmt.Sprintf("Conversations per day over the last %d days", view.Days) }>
+						<line class="chart__grid-line" x1="46" y1="22" x2="748" y2="22"></line>
+						<line class="chart__grid-line" x1="46" y1="107" x2="748" y2="107"></line>
+						<line class="chart__grid-line" x1="46" y1="192" x2="748" y2="192"></line>
+						<text class="chart__label" x="0" y="26">{ view.Chart.TopLabel }</text>
+						<text class="chart__label" x="0" y="111">{ view.Chart.MidLabel }</text>
+						<text class="chart__label" x="0" y="196">0</text>
+						<path class="chart__area" d={ view.Chart.Area }></path>
+						<path class="chart__line" d={ view.Chart.Path }></path>
+						for _, point := range view.Chart.Points {
+							if point.Total > 0 {
+								<circle class="chart__dot" cx={ fmt.Sprintf("%.2f", point.X) } cy={ fmt.Sprintf("%.2f", point.Y) } r="3.2"></circle>
+							}
+						}
+					</svg>
+					<div class="chart__labels"><span>{ view.Chart.StartLabel }</span><span>{ view.Chart.MidDate }</span><span>{ view.Chart.EndLabel }</span></div>
+				} else {
+					<div class="chart__empty">No rolled-up days in this window yet.</div>
+				}
+			</section>
+			<section class="card">
+				<div class="card__head"><div><h2 class="card__title">Live status mix</h2><p class="card__sub">All conversations right now, independent of the daily rollup.</p></div></div>
+				<div class="card__body">
+					if len(view.StatusDist) == 0 {
+						<p class="muted small">No conversations yet.</p>
+					} else {
+						<div class="dist">
+							for _, item := range view.StatusDist {
+								<div class="dist__row">
+									<span class="dist__label">{ item.Label }</span>
+									<span class="dist__track"><span class={ "dist__fill " } data-tone={ item.Tone } style={ fmt.Sprintf("width: %d%%", item.Percent) }></span></span>
+									<span class="dist__value">{ itoa(item.Count) }</span>
+								</div>
+							}
+						</div>
+					}
+				</div>
+				<div class="card__foot"><span class="muted small">Open now</span><strong>{ itoa(view.TotalOpen) }</strong></div>
+			</section>
+		</div>
+	}
+}
+
+func rangeClass(days, item int) string {
+	if days == item {
+		return "is-active"
+	}
+	return ""
+}
+
+templ AnalyticsPage(shell ShellView, view AnalyticsView) {
+	@appShell(shell) {
+		@analyticsContent(view)
+	}
 }

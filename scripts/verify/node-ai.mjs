@@ -106,7 +106,7 @@ try {
         const res2 = await runAgentTurn(
           { orgId, conversationId: conv2, agentId, runId: randomUUID(), customerId, channel: "widget" },
           structuredClone(AGENT_POLICY),
-          { customerMessage: "Resetting my password — please add a note summarizing my issue.", history: [], customer: { name: "Nina", email: "c@ainode.test", attributes: {} }, recentConversations: [] },
+          { customerMessage: "Resetting my password - please add a note summarizing my issue.", history: [], customer: { name: "Nina", email: "c@ainode.test", attributes: {} }, recentConversations: [] },
           { chat: (r) => mock2.provider.chat({}, r), pool: client, retrieval: engine, tools: [addNoteTool] },
         );
         console.error("DEBUG res2:", JSON.stringify({ outcome: res2.outcome, reason: res2.escalationReason, steps: res2.steps }));

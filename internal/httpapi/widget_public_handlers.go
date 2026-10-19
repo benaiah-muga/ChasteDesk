@@ -414,3 +414,58 @@ func (s *Server) serveEventStream(w http.ResponseWriter, r *http.Request, intere
 		}
 	}
 }
+
+func (s *Server) handleWidgetHistory(w http.ResponseWriter, r *http.Request) {
+	auth, err := s.authenticateWidget(r)
+	if err != nil {
+		s.respondError(w, r, err)
+		return
+	}
+	conversationID := r.PathValue("id")
+	if !widget.VerifyConversationToken(s.cfg.AppSecret, auth.OrgID, conversationID, r.URL.Query().Get("convToken")) {
+		s.respondError(w, r, apperr.Unauthorized("invalid conversation token"))
+		return
+	}
+	var status string
+	if err := s.pool.QueryRow(r.Context(), `select status::text from conversations where id = $1 and org_id = $2`,
+		conversationID, auth.OrgID).Scan(&status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.respondError(w, r, apperr.NotFound("conversation not found"))
+			return
+		}
+		s.respondError(w, r, err)
+		return
+	}
+	rows, err := s.pool.Query(r.Context(),
+		`select id::text, role::text, content, coalesce(citations, '[]'::jsonb), created_at
+		   from messages where conversation_id = $1 and org_id = $2 and role <> 'internal_note'
+		  order by created_at asc limit 200`, conversationID, auth.OrgID)
+	if err != nil {
+		s.respondError(w, r, err)
+		return
+	}
+	defer rows.Close()
+	messages := []map[string]any{}
+	for rows.Next() {
+		var (
+			messageID string
+			role      string
+			content   string
+			citations []byte
+			createdAt time.Time
+		)
+		if err := rows.Scan(&messageID, &role, &content, &citations, &createdAt); err != nil {
+			s.respondError(w, r, err)
+			return
+		}
+		messages = append(messages, map[string]any{
+			"id": messageID, "role": role, "content": content,
+			"citations": json.RawMessage(citations), "createdAt": createdAt,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		s.respondError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, map[string]any{"status": status, "messages": messages})
+}

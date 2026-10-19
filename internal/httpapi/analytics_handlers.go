@@ -86,12 +86,15 @@ func rateLabel(rate float64) string {
 
 func secondsLabel(seconds *int64) string {
 	if seconds == nil {
-		return "—"
+		return "-"
 	}
 	return strconv.FormatInt(*seconds, 10) + "s"
 }
 
-func (s *Server) analyticsPageData(r *http.Request, orgID string) (*analytics.Metrics, []map[string]any, error) {
+func (s *Server) analyticsPageData(r *http.Request, orgID string, days int) (*analytics.Metrics, []map[string]any, error) {
+	if days < 1 {
+		days = 14
+	}
 	var raw json.RawMessage
 	err := s.pool.QueryRow(r.Context(),
 		`select metrics from analytics_daily where org_id = $1 order by date desc limit 1`, orgID).Scan(&raw)
@@ -105,7 +108,7 @@ func (s *Server) analyticsPageData(r *http.Request, orgID string) (*analytics.Me
 	if err := json.Unmarshal(raw, &metrics); err != nil {
 		return nil, nil, err
 	}
-	since := time.Now().UTC().AddDate(0, 0, -13).Format("2006-01-02")
+	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 	rows, err := s.pool.Query(r.Context(),
 		`select date, metrics from analytics_daily
 		 where org_id = $1 and date >= $2 order by date asc`, orgID, since)
