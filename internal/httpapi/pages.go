@@ -411,7 +411,7 @@ func (s *Server) handleSettingsProviderTest(w http.ResponseWriter, r *http.Reque
 		s.respondError(w, r, err)
 		return
 	}
-	models, listErr := model.ListModels(r.Context(), model.ProviderID(row.ProviderID), cfg)
+	models, listErr := model.For(model.ProviderID(row.ProviderID)).ListModels(r.Context(), cfg)
 	id := configID
 	if listErr != nil {
 		_ = s.repo.WriteAudit(db.WithOrg(r.Context(), sess.OrgID), db.AuditInput{

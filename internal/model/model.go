@@ -3,12 +3,9 @@ package model
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 type ProviderID string
@@ -32,130 +29,6 @@ func KnownProvider(id string) bool {
 	return false
 }
 
-type Info struct {
-	ID                string `json:"id"`
-	DisplayName       string `json:"displayName"`
-	SupportsTools     bool   `json:"supportsTools"`
-	SupportsEmbedding bool   `json:"supportsEmbedding"`
-}
-
-type Config struct {
-	BaseURL string
-	APIKey  string
-}
-
-func stripSlash(raw string) string {
-	return strings.TrimRight(raw, "/")
-}
-
-func listModelsURL(id ProviderID, baseURL string) string {
-	stripped := stripSlash(baseURL)
-	switch id {
-	case ProviderOpenAI:
-		if stripped == "" {
-			stripped = "https://api.openai.com/v1"
-		}
-		return stripped + "/models"
-	case ProviderAnthropic:
-		if stripped == "" {
-			stripped = "https://api.anthropic.com"
-		}
-		return stripped + "/v1/models"
-	case ProviderGoogle:
-		if stripped == "" {
-			stripped = "https://generativelanguage.googleapis.com"
-		}
-		return stripped + "/v1beta/models"
-	case ProviderOllama:
-		if stripped == "" {
-			stripped = "http://localhost:11434"
-		}
-		if baseURL != "" {
-			return stripped + "/models"
-		}
-		return stripped + "/api/tags"
-	default:
-		if stripped == "" {
-			stripped = "http://localhost:8080/v1"
-		}
-		return stripped + "/models"
-	}
-}
-
-func listModelsHeaders(id ProviderID, apiKey string) map[string]string {
-	switch id {
-	case ProviderOpenAI, ProviderOpenAICompatible:
-		if apiKey != "" {
-			return map[string]string{"Authorization": "Bearer " + apiKey}
-		}
-	case ProviderAnthropic:
-		return map[string]string{"x-api-key": apiKey, "anthropic-version": "2023-06-01"}
-	case ProviderGoogle:
-		if apiKey != "" {
-			return map[string]string{"x-goog-api-key": apiKey}
-		}
-	}
-	return map[string]string{}
-}
-
-type modelsEnvelope struct {
-	Data   []map[string]any `json:"data"`
-	Models []map[string]any `json:"models"`
-}
-
-func (e modelsEnvelope) ids() []string {
-	entries := e.Data
-	if entries == nil {
-		entries = e.Models
-	}
-	out := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		id, _ := entry["id"].(string)
-		if id == "" {
-			id, _ = entry["name"].(string)
-		}
-		if id == "" {
-			continue
-		}
-		out = append(out, id)
-	}
-	return out
-}
-
-func ListModels(ctx context.Context, id ProviderID, cfg Config) ([]Info, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, listModelsURL(id, cfg.BaseURL), nil)
-	if err != nil {
-		return nil, err
-	}
-	for key, value := range listModelsHeaders(id, cfg.APIKey) {
-		request.Header.Set(key, value)
-	}
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("listModels failed for %s: %d", id, resp.StatusCode)
-	}
-	var envelope modelsEnvelope
-	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("listModels failed for %s: invalid response", id)
-	}
-	ids := envelope.ids()
-	models := make([]Info, 0, len(ids))
-	for _, modelID := range ids {
-		models = append(models, Info{
-			ID:                modelID,
-			DisplayName:       modelID,
-			SupportsTools:     true,
-			SupportsEmbedding: id != ProviderAnthropic,
-		})
-	}
-	return models, nil
-}
-
 func ValidBaseURL(raw string) bool {
 	if raw == "" {
 		return true
@@ -165,4 +38,143 @@ func ValidBaseURL(raw string) bool {
 		return false
 	}
 	return parsed.Scheme == "http" || parsed.Scheme == "https"
+}
+
+type Info struct {
+	ID                string `json:"id"`
+	DisplayName       string `json:"displayName"`
+	SupportsTools     bool   `json:"supportsTools"`
+	SupportsEmbedding bool   `json:"supportsEmbedding"`
+}
+
+type Config struct {
+	BaseURL          string
+	APIKey           string
+	EmbeddingModelID string
+}
+
+type Message struct {
+	Role       string
+	Content    string
+	ToolCallID string
+	ToolName   string
+}
+
+type ToolDeclaration struct {
+	ID          string
+	Description string
+	Parameters  map[string]any
+}
+
+type ToolCall struct {
+	ID     string
+	ToolID string
+	Args   any
+}
+
+type ChatRequest struct {
+	ModelID         string
+	Messages        []Message
+	Tools           []ToolDeclaration
+	MaxOutputTokens int
+	Temperature     *float64
+}
+
+type Usage struct {
+	InputTokens  int
+	OutputTokens int
+}
+
+type FinishReason string
+
+const (
+	FinishStop      FinishReason = "stop"
+	FinishToolCalls FinishReason = "tool_calls"
+	FinishLength    FinishReason = "length"
+	FinishError     FinishReason = "error"
+)
+
+type ChatResult struct {
+	Text         *string
+	ToolCalls    []ToolCall
+	Usage        Usage
+	FinishReason FinishReason
+}
+
+type UnsupportedCapabilityError struct {
+	Capability string
+	ProviderID string
+}
+
+func (e *UnsupportedCapabilityError) Error() string {
+	return fmt.Sprintf("provider %s does not support %s", e.ProviderID, e.Capability)
+}
+
+type APIError struct {
+	ProviderID string
+	Operation  string
+	Status     int
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("%s %s failed for %s: %s", e.ProviderID, e.Operation, e.ProviderID, e.Message)
+	}
+	return fmt.Sprintf("%s failed for %s: %d", e.Operation, e.ProviderID, e.Status)
+}
+
+type Provider interface {
+	ID() ProviderID
+	ListModels(ctx context.Context, cfg Config) ([]Info, error)
+	Chat(ctx context.Context, cfg Config, req ChatRequest) (ChatResult, error)
+	Embed(ctx context.Context, cfg Config, texts []string) ([][]float64, error)
+}
+
+func For(id ProviderID) Provider {
+	switch id {
+	case ProviderAnthropic:
+		return anthropicProvider{}
+	case ProviderGoogle:
+		return googleProvider{}
+	default:
+		return openAIProvider{id: id}
+	}
+}
+
+func stripSlash(raw string) string {
+	return strings.TrimRight(raw, "/")
+}
+
+func mapFinishReason(raw string) FinishReason {
+	switch raw {
+	case "stop", "end_turn", "STOP", "stop_sequence":
+		return FinishStop
+	case "tool-calls", "tool_calls", "tool_use":
+		return FinishToolCalls
+	case "length", "max_tokens", "MAX_TOKENS":
+		return FinishLength
+	default:
+		return FinishError
+	}
+}
+
+func firstNonZero(values ...int) int {
+	for _, value := range values {
+		if value != 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func numberFrom(raw any) int {
+	switch value := raw.(type) {
+	case float64:
+		return int(value)
+	case int:
+		return value
+	default:
+		return 0
+	}
 }

@@ -166,7 +166,7 @@ func (s *Server) handleModelsList(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, r, err)
 		return
 	}
-	models, err := model.ListModels(r.Context(), model.ProviderID(row.ProviderID), cfg)
+	models, err := model.For(model.ProviderID(row.ProviderID)).ListModels(r.Context(), cfg)
 	if err != nil {
 		s.respondError(w, r, err)
 		return
@@ -223,7 +223,7 @@ func (s *Server) providerConnectResult(w http.ResponseWriter, r *http.Request, s
 			Payload:    payload,
 		})
 	}
-	models, listErr := model.ListModels(r.Context(), model.ProviderID(row.ProviderID), cfg)
+	models, listErr := model.For(model.ProviderID(row.ProviderID)).ListModels(r.Context(), cfg)
 	if listErr != nil {
 		audit(map[string]any{"ok": false, "error": listErr.Error()})
 		writeData(w, http.StatusOK, map[string]any{"ok": false, "error": listErr.Error()})
