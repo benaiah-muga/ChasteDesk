@@ -12,3 +12,6 @@ playwright-report
 test-results
 *.tsbuildinfo
 .drizzle
+bin/
+*.test
+coverage.out

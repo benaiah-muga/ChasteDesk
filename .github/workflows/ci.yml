@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, go-migration]
   pull_request:
 
 jobs:
@@ -27,17 +27,12 @@ jobs:
       APP_SECRET: ci-only-secret-not-used-in-production-0123456789
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-go@v5
         with:
-          version: 11
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm audit --prod --audit-level high
-      - run: pnpm --filter @chastedesk/db generate:check
-      - run: pnpm build
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./...
