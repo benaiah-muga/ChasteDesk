@@ -139,9 +139,16 @@ func TestIngestURLFixtureSite(t *testing.T) {
 	if version != 2 {
 		t.Fatalf("version must bump to 2, got %d", version)
 	}
-	var audits int
-	if err := app.pool.QueryRow(ctx, "select count(*)::int from audit_events where org_id = $1 and type = 'knowledge.ingest.completed'", orgID).Scan(&audits); err != nil {
-		t.Fatalf("audit count: %v", err)
+	audits := 0
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := app.pool.QueryRow(ctx, "select count(*)::int from audit_events where org_id = $1 and type = 'knowledge.ingest.completed'", orgID).Scan(&audits); err != nil {
+			t.Fatalf("audit count: %v", err)
+		}
+		if audits == 1 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	if audits != 1 {
 		t.Fatalf("ingest.completed audit row missing (count=%d)", audits)
