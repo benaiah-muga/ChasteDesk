@@ -47,8 +47,10 @@ func run() error {
 		jobs.Work(ctx, name, 2, handler)
 		names = append(names, name)
 	}
-	jobs.Work(ctx, "execute-action", 2, agent.ExecuteActionHandler(pool, retrieval.NewEngine(pool)))
-	names = append(names, "execute-action")
+	engine := retrieval.NewEngine(pool)
+	jobs.Work(ctx, "execute-action", 2, agent.ExecuteActionHandler(pool, engine))
+	jobs.Work(ctx, "ai-respond", 2, agent.RespondHandler(pool, cfg.AppSecret, engine))
+	names = append(names, "execute-action", "ai-respond")
 	logger.Info("worker started", "queues", names)
 	<-ctx.Done()
 	logger.Info("worker stopped")
