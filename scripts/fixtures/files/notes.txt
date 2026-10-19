@@ -1,0 +1,1 @@
+ChasteDesk plain text fixture: password resets, billing plans, and login credential guidance for ingestion.

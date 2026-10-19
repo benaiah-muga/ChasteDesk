@@ -1,0 +1,39 @@
+{
+  "name": "chastedesk",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "vitest run --passWithNoTests",
+    "dev:web": "pnpm --filter @chastedesk/web dev",
+    "dev:worker": "pnpm --filter @chastedesk/worker dev",
+    "db:generate": "pnpm --filter @chastedesk/db generate",
+    "db:migrate": "pnpm --filter @chastedesk/db migrate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.3.1",
+    "@types/pg": "^8.15.5",
+    "@typescript-eslint/eslint-plugin": "^8.43.0",
+    "@typescript-eslint/parser": "^8.43.0",
+    "drizzle-kit": "^0.31.4",
+    "eslint": "^9.35.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.5",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@chastedesk/worker",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --noEmit",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@chastedesk/ai": "workspace:*",
+    "@chastedesk/db": "workspace:*",
+    "@chastedesk/retrieval": "workspace:*",
+    "@chastedesk/shared": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "mammoth": "^1.12.2",
+    "pg": "^8.23.0",
+    "pg-boss": "^10.3.3",
+    "unpdf": "^1.8.1"
+  }
+}

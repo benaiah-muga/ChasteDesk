@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: chastedesk
+          POSTGRES_PASSWORD: chastedesk
+          POSTGRES_DB: chastedesk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chastedesk"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://chastedesk:chastedesk@localhost:5432/chastedesk_test
+      APP_SECRET: ci-only-secret-not-used-in-production-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm audit --prod --audit-level high
+      - run: pnpm --filter @chastedesk/db generate:check
+      - run: pnpm build

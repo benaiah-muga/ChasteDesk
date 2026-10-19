@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+.turbo
+coverage
+.env
+.env.local
+data
+.unlazy
+.claude/settings.local.json
+playwright-report
+test-results
+*.tsbuildinfo
+.drizzle

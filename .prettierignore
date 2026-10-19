@@ -1,0 +1,12 @@
+node_modules
+.next
+dist
+coverage
+.unlazy
+playwright-report
+test-results
+drizzle
+data
+package-lock.json
+pnpm-lock.yaml
+LICENSE

@@ -1,0 +1,26 @@
+{
+  "name": "@chastedesk/ai",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.27",
+    "@ai-sdk/google": "^2.0.23",
+    "@ai-sdk/openai": "^2.0.42",
+    "@ai-sdk/openai-compatible": "^1.0.20",
+    "@chastedesk/db": "workspace:*",
+    "@chastedesk/retrieval": "workspace:*",
+    "@chastedesk/shared": "workspace:*",
+    "ai": "^5.0.68",
+    "zod": "^4.1.11"
+  }
+}

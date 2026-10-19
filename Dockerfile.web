@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+# ChasteDesk web (Next.js dashboard + widget + API)
+FROM node:24-alpine AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/db/package.json packages/db/
+COPY packages/ai/package.json packages/ai/
+COPY packages/retrieval/package.json packages/retrieval/
+COPY packages/shared/package.json packages/shared/
+COPY packages/ui/package.json packages/ui/
+RUN corepack enable && pnpm install --frozen-lockfile --prod=false
+
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages ./packages
+COPY . .
+RUN corepack enable && pnpm --filter @chastedesk/web build
+
+FROM node:24-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/web/.next ./apps/web/.next
+COPY --from=build /app/apps/web/public ./apps/web/public
+COPY --from=build /app/apps/web/package.json ./apps/web/
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/package.json ./package.json
+EXPOSE 3000
+CMD ["node", "apps/web/node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]
