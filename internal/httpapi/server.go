@@ -10,6 +10,8 @@ import (
 
 	"chastedesk/internal/config"
 	"chastedesk/internal/db"
+	"chastedesk/internal/queue"
+	"chastedesk/internal/web"
 )
 
 type Server struct {
@@ -17,12 +19,14 @@ type Server struct {
 	logger *slog.Logger
 	pool   *pgxpool.Pool
 	repo   *db.Repo
+	queue  *queue.Queue
 }
 
 func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
 	s := &Server{cfg: cfg, logger: logger, pool: pool}
 	if pool != nil {
 		s.repo = db.NewRepo(pool)
+		s.queue = queue.New(pool)
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.handleHealth)
@@ -35,6 +39,37 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /api/onboarding/complete", s.handleOnboardingComplete)
 	mux.HandleFunc("GET /api/audit", s.handleAuditList)
 	mux.HandleFunc("GET /api/settings/providers", s.handleProvidersList)
+	mux.HandleFunc("POST /api/settings/providers", s.handleProviderSave)
+	mux.HandleFunc("GET /api/settings/models", s.handleModelsList)
+	mux.HandleFunc("POST /api/settings/providers-connect", s.handleProviderConnect)
+	mux.HandleFunc("POST /api/settings/providers/{id}/connect", s.handleProviderConnectByID)
+	mux.HandleFunc("DELETE /api/settings/providers/{id}", s.handleProviderDelete)
+	mux.HandleFunc("GET /api/knowledge/sources", s.handleKnowledgeSourcesList)
+	mux.HandleFunc("POST /api/knowledge/sources", s.handleKnowledgeSourceCreate)
+	mux.HandleFunc("POST /api/knowledge/sources-update", s.handleKnowledgeSourceUpdate)
+	mux.HandleFunc("DELETE /api/knowledge/sources-update", s.handleKnowledgeSourceDelete)
+	mux.HandleFunc("POST /api/knowledge/sources-reindex", s.handleKnowledgeSourceReindex)
+	mux.HandleFunc("GET /api/settings/widget", s.handleWidgetGet)
+	mux.HandleFunc("PUT /api/settings/widget", s.handleWidgetPut)
+	mux.HandleFunc("GET /api/settings/widget-token", s.handleWidgetToken)
+	mux.Handle("GET /static/", http.FileServerFS(web.Static))
+	mux.HandleFunc("GET /login", s.handleLoginPage)
+	mux.HandleFunc("POST /login", s.handleLoginSubmit)
+	mux.HandleFunc("POST /logout", s.handleLogout)
+	mux.HandleFunc("GET /onboarding", s.handleOnboardingPage)
+	mux.HandleFunc("POST /onboarding/provider", s.handleOnboardingProvider)
+	mux.HandleFunc("POST /onboarding/add", s.handleOnboardingAdd)
+	mux.HandleFunc("POST /onboarding/finish", s.handleOnboardingFinish)
+	mux.HandleFunc("GET /dashboard/knowledge", s.handleKnowledgePage)
+	mux.HandleFunc("POST /dashboard/knowledge/add", s.handleKnowledgeAdd)
+	mux.HandleFunc("POST /dashboard/knowledge/scope", s.handleKnowledgeScope)
+	mux.HandleFunc("POST /dashboard/knowledge/delete", s.handleKnowledgeDelete)
+	mux.HandleFunc("POST /dashboard/knowledge/reindex", s.handleKnowledgeReindex)
+	mux.HandleFunc("GET /dashboard/settings", s.handleSettingsPage)
+	mux.HandleFunc("POST /dashboard/settings/providers", s.handleSettingsProviderSave)
+	mux.HandleFunc("POST /dashboard/settings/providers/test", s.handleSettingsProviderTest)
+	mux.HandleFunc("POST /dashboard/settings/providers/remove", s.handleSettingsProviderRemove)
+	mux.HandleFunc("POST /dashboard/settings/widget", s.handleSettingsWidgetSave)
 	mux.HandleFunc("/", s.handleNotFound)
 	return s.withRequestLog(mux)
 }

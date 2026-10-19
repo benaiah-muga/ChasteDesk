@@ -1,0 +1,359 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+package views
+
+import "strconv"
+
+type ProviderView struct {
+	ID          string
+	ProviderID  string
+	DisplayName string
+	KeyLast4    string
+	BaseURL     string
+}
+
+type SourceView struct {
+	ID      string
+	Name    string
+	Type    string
+	Scope   string
+	Status  string
+	Version int
+	Error   string
+}
+
+type OnboardingView struct {
+	ProviderConfigured bool
+	KnowledgeAdded     bool
+	Complete           bool
+}
+
+templ baseHead(title string) {
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>{ title }</title>
+	<style>
+		:root { --fg: #1c2b2d; --muted: #5b6b6e; --bg: #f7f8f7; --card: #ffffff; --border: #dfe4e2; --accent: #1f6f5c; --accent-strong: #17574a; --warn: #9a3412; }
+		* { box-sizing: border-box; }
+		body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+		main { max-width: 880px; margin: 0 auto; padding: 40px 24px 64px; }
+		h1 { font-size: 26px; letter-spacing: -0.01em; margin: 0 0 8px; }
+		h2 { font-size: 17px; margin: 0 0 12px; }
+		p { margin: 0 0 12px; }
+		.muted { color: var(--muted); }
+		.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 0 0 20px; }
+		.stack > * + * { margin-top: 12px; }
+		.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+		label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+		input[type="text"], input[type="url"], input[type="password"], input[type="email"], select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--fg); font: inherit; }
+		textarea { resize: vertical; }
+		button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+		button:hover { background: var(--accent-strong); }
+		button.secondary { background: transparent; color: var(--accent); }
+		button.danger { background: transparent; border-color: var(--warn); color: var(--warn); }
+		.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: #eef1ef; font-size: 12px; color: var(--muted); }
+		.badge.success { background: #e4f3ec; border-color: #bcdfd0; color: var(--accent-strong); }
+		.badge.warn { background: #fbeae3; border-color: #eec9b8; color: var(--warn); }
+		table { width: 100%; border-collapse: collapse; }
+		th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 8px; border-bottom: 1px solid var(--border); }
+		td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+		.error-text { color: var(--warn); }
+		a { color: var(--accent); }
+	</style>
+}
+
+templ LoginPage(errorMessage string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@baseHead("Sign in — ChasteDesk")
+	</head>
+	<body>
+		<main style="max-width: 400px;">
+			<h1>Sign in</h1>
+			<p class="muted">Welcome back. Use the account you created during setup.</p>
+			<section class="card">
+				<form method="post" action="/login" class="stack">
+					<div>
+						<label for="email">Email</label>
+						<input id="email" name="email" type="email" required/>
+					</div>
+					<div>
+						<label for="password">Password</label>
+						<input id="password" name="password" type="password" required/>
+					</div>
+					if errorMessage != "" {
+						<p class="error-text">{ errorMessage }</p>
+					}
+					<button type="submit">Sign in</button>
+				</form>
+			</section>
+		</main>
+	</body>
+	</html>
+}
+
+templ ProviderForm(action string) {
+	<form method="post" action={ action } class="stack">
+		<div>
+			<label for="provider">Provider</label>
+			<select id="provider" name="providerId">
+				<option value="openai">OpenAI</option>
+				<option value="anthropic">Anthropic</option>
+				<option value="google">Google AI</option>
+				<option value="ollama">Ollama (local)</option>
+				<option value="openai-compatible">OpenAI-compatible endpoint</option>
+			</select>
+		</div>
+		<div>
+			<label for="displayName">Display name</label>
+			<input id="displayName" name="displayName" type="text" value="OpenAI" required/>
+		</div>
+		<div>
+			<label for="apiKey">API key</label>
+			<input id="apiKey" name="apiKey" type="password" placeholder="Stored encrypted, never shown again"/>
+		</div>
+		<div>
+			<label for="baseUrl">Base URL (optional)</label>
+			<input id="baseUrl" name="baseUrl" type="text" placeholder="https://…"/>
+		</div>
+		<button type="submit">Save provider</button>
+	</form>
+}
+
+templ OnboardingPage(view OnboardingView) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@baseHead("Set up ChasteDesk")
+	</head>
+	<body>
+		if view.Complete {
+			<main style="max-width: 640px;">
+				<section class="card">
+					<h1>Your desk is ready</h1>
+					<p class="muted">Head to the inbox to watch your AI handle conversations, or keep tuning knowledge and providers in settings.</p>
+					<a href="/dashboard/knowledge">Open knowledge</a>
+				</section>
+			</main>
+		} else {
+			<main style="max-width: 640px;">
+				<h1>Let’s get your support desk running</h1>
+				<p class="muted">I’ll check your setup, connect an AI provider, and index your first knowledge source.</p>
+				<div class="stack">
+					<section class="card">
+						<h2>
+							Step 1 — Connect an AI provider
+							if view.ProviderConfigured {
+								<span class="badge success">done</span>
+							} else {
+								<span class="badge">pending</span>
+							}
+						</h2>
+						@ProviderForm("/onboarding/provider")
+					</section>
+					<section class="card">
+						<h2>
+							Step 2 — Add your first knowledge source
+							if view.KnowledgeAdded {
+								<span class="badge success">done</span>
+							} else {
+								<span class="badge">pending</span>
+							}
+						</h2>
+						<p class="muted">This can be a public help page — the AI will cite it when answering customers.</p>
+						<form method="post" action="/onboarding/add" class="row">
+							<div style="flex: 1;">
+								<label for="knowledgeUrl">Knowledge URL</label>
+								<input id="knowledgeUrl" name="url" type="url" value="https://example.com/help"/>
+							</div>
+							<button type="submit">Add</button>
+							<a href="/dashboard/knowledge">Open knowledge</a>
+						</form>
+					</section>
+					<section class="card">
+						<h2>Step 3 — Finish</h2>
+						<p class="muted">You can change everything later in settings. The AI only does what your resolution policy allows.</p>
+						<form method="post" action="/onboarding/finish">
+							<button type="submit">Finish setup</button>
+						</form>
+					</section>
+				</div>
+			</main>
+		}
+	</body>
+	</html>
+}
+
+templ KnowledgePage(sources []SourceView, message string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@baseHead("Knowledge — ChasteDesk")
+		<script src="/static/htmx.min.js" defer></script>
+	</head>
+	<body>
+		<main>
+			<h1>Knowledge</h1>
+			if message != "" {
+				<p class="badge success">{ message }</p>
+			}
+			<section class="card" style="margin-bottom: 24px;">
+				<h2>Add a source</h2>
+				<form method="post" action="/dashboard/knowledge/add" enctype="multipart/form-data" class="stack">
+					<div>
+						<label for="url">Website URL</label>
+						<input id="url" name="url" type="url" placeholder="https://example.com/help"/>
+					</div>
+					<div>
+						<label for="file">…or upload a file (pdf, md, txt, docx)</label>
+						<input id="file" name="file" type="file" accept=".pdf,.md,.txt,.docx"/>
+					</div>
+					<div>
+						<label for="name">…or paste text</label>
+						<input id="name" name="name" type="text" placeholder="Title"/>
+						<textarea id="text" name="text" rows="4" placeholder="Paste the content…"></textarea>
+					</div>
+					<div class="row">
+						<div style="width: 220px;">
+							<label for="scope">Scope</label>
+							<select id="scope" name="scope">
+								<option value="public">Public (customer-facing)</option>
+								<option value="internal">Internal only</option>
+							</select>
+						</div>
+						<button type="submit">Add source</button>
+					</div>
+				</form>
+			</section>
+			<section class="card" id="sources-card" hx-get="/dashboard/knowledge" hx-trigger="every 3s" hx-select="#sources-card" hx-swap="outerHTML">
+				<h2>Sources</h2>
+				<table>
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Type</th>
+							<th>Status</th>
+							<th>Scope</th>
+							<th>Version</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, source := range sources {
+							<tr data-source-name={ source.Name }>
+								<td>{ source.Name }</td>
+								<td>{ source.Type }</td>
+								<td>
+									if source.Status == "ready" {
+										<span class="badge success">{ source.Status }</span>
+									} else if source.Status == "failed" {
+										<span class="badge warn">{ source.Status }</span>
+									} else {
+										<span class="badge">{ source.Status }</span>
+									}
+									if source.Error != "" {
+										<span class="error-text"> { source.Error }</span>
+									}
+								</td>
+								<td>
+									<form method="post" action="/dashboard/knowledge/scope">
+										<input type="hidden" name="sourceId" value={ source.ID }/>
+										<input type="hidden" name="scope" value={ otherScope(source.Scope) }/>
+										<button class="secondary" type="submit">{ source.Scope }</button>
+									</form>
+								</td>
+								<td>v{ strconv.Itoa(source.Version) }</td>
+								<td style="text-align: right;">
+									<form method="post" action="/dashboard/knowledge/reindex" style="display: inline;">
+										<input type="hidden" name="sourceId" value={ source.ID }/>
+										<button class="secondary" type="submit">Reindex</button>
+									</form>
+									<form method="post" action="/dashboard/knowledge/delete" style="display: inline;">
+										<input type="hidden" name="sourceId" value={ source.ID }/>
+										<button class="danger" type="submit">Delete</button>
+									</form>
+								</td>
+							</tr>
+						}
+						if len(sources) == 0 {
+							<tr>
+								<td colspan="6" class="muted">No sources yet.</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</section>
+		</main>
+	</body>
+	</html>
+}
+
+templ SettingsPage(providers []ProviderView, originsText string, embedSnippet string, message string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@baseHead("Settings — ChasteDesk")
+	</head>
+	<body>
+		<main style="max-width: 760px;">
+			<h1>Settings</h1>
+			if message != "" {
+				<p class="badge success">{ message }</p>
+			}
+			<div class="stack">
+				<section class="card">
+					<h2>AI providers</h2>
+					<ul style="list-style: none; padding: 0; margin: 0 0 16px;">
+						for _, provider := range providers {
+							<li class="row" style="justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+								<span>
+									<strong>{ provider.DisplayName }</strong>
+									<span class="muted">({ provider.ProviderID })</span>
+									if provider.KeyLast4 != "" {
+										<span class="badge">key ••••{ provider.KeyLast4 }</span>
+									} else {
+										<span class="badge">no key</span>
+									}
+									if provider.BaseURL != "" {
+										<span class="muted"> { provider.BaseURL }</span>
+									}
+								</span>
+								<span class="row">
+									<form method="post" action="/dashboard/settings/providers/test">
+										<input type="hidden" name="configId" value={ provider.ID }/>
+										<button class="secondary" type="submit">Test</button>
+									</form>
+									<form method="post" action="/dashboard/settings/providers/remove">
+										<input type="hidden" name="configId" value={ provider.ID }/>
+										<button class="danger" type="submit">Remove</button>
+									</form>
+								</span>
+							</li>
+						}
+						if len(providers) == 0 {
+							<li class="muted">No providers configured yet.</li>
+						}
+					</ul>
+					@ProviderForm("/dashboard/settings/providers")
+				</section>
+				<section class="card">
+					<h2>Chat widget</h2>
+					<form method="post" action="/dashboard/settings/widget" class="stack">
+						<div>
+							<label for="origins">Allowed origins (one per line)</label>
+							<textarea id="origins" name="origins" rows="3" placeholder="https://example.com">{ originsText }</textarea>
+						</div>
+						<button type="submit">Save widget settings</button>
+					</form>
+					if embedSnippet != "" {
+						<div>
+							<label>Embed snippet</label>
+							<code style="display: block; word-break: break-all; background: #eef1ef; padding: 8px; border-radius: 8px;">{ embedSnippet }</code>
+						</div>
+					}
+				</section>
+			</div>
+		</main>
+	</body>
+	</html>
+}
