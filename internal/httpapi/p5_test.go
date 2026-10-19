@@ -27,6 +27,8 @@ import (
 type workerTestApp struct {
 	*testApp
 	logs *bytes.Buffer
+	jobs *queue.Queue
+	ctx  context.Context
 }
 
 func startWorkerTestApp(t *testing.T, uploadsDir string) *workerTestApp {
@@ -60,7 +62,7 @@ func startWorkerTestApp(t *testing.T, uploadsDir string) *workerTestApp {
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	srv := httptest.NewServer(New(cfg, logger, pool))
 	t.Cleanup(srv.Close)
-	return &workerTestApp{testApp: &testApp{t: t, pool: pool, server: srv}, logs: logs}
+	return &workerTestApp{testApp: &testApp{t: t, pool: pool, server: srv}, logs: logs, jobs: jobs, ctx: ctx}
 }
 
 func (a *testApp) bootstrapAndSignIn(t *testing.T, orgName, email string) (*testJar, string) {

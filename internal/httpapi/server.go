@@ -38,6 +38,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("GET /api/onboarding/status", s.handleOnboardingStatus)
 	mux.HandleFunc("POST /api/onboarding/complete", s.handleOnboardingComplete)
 	mux.HandleFunc("GET /api/audit", s.handleAuditList)
+	mux.HandleFunc("GET /api/actions", s.handleActionsList)
+	mux.HandleFunc("POST /api/actions/decide", s.handleActionDecide)
 	mux.HandleFunc("GET /api/settings/providers", s.handleProvidersList)
 	mux.HandleFunc("POST /api/settings/providers", s.handleProviderSave)
 	mux.HandleFunc("GET /api/settings/models", s.handleModelsList)

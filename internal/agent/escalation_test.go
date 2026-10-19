@@ -83,7 +83,7 @@ func TestAgentEscalation(t *testing.T) {
 	deniedTools := []agent.Tool{{
 		Declaration: model.ToolDeclaration{ID: "issue_refund", Description: "refund", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}},
 		Mode:        agent.ModeDisabled,
-		Execute:     func(context.Context, any) (agent.ToolOutcome, error) { return agent.ToolOutcome{OK: false}, nil },
+		Execute:     func(agent.ToolCtx, any) (agent.ToolResult, error) { return agent.ToolResult{OK: false}, nil },
 	}}
 	denied := runScenario(t, "Please process something for me.", []mockStep{
 		toolCallStep(model.ToolCall{ID: "c2", ToolID: "issue_refund", Args: map[string]any{"amount": 500}}),

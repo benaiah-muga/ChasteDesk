@@ -21,9 +21,9 @@ func TestAgentInjection(t *testing.T) {
 	deleteTool := agent.Tool{
 		Declaration: model.ToolDeclaration{ID: "delete_account", Description: "delete the account", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}},
 		Mode:        agent.ModeAutonomous,
-		Execute: func(context.Context, any) (agent.ToolOutcome, error) {
+		Execute: func(agent.ToolCtx, any) (agent.ToolResult, error) {
 			deleteExecuted = true
-			return agent.ToolOutcome{OK: true, Data: map[string]any{"deleted": true}}, nil
+			return agent.ToolResult{OK: true, Data: map[string]any{"deleted": true}}, nil
 		},
 	}
 

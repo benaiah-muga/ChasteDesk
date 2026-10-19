@@ -9,11 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"chastedesk/internal/agent"
 	"chastedesk/internal/config"
 	"chastedesk/internal/db"
 	"chastedesk/internal/ingest"
 	"chastedesk/internal/logging"
 	"chastedesk/internal/queue"
+	"chastedesk/internal/retrieval"
 )
 
 func main() {
@@ -45,6 +47,8 @@ func run() error {
 		jobs.Work(ctx, name, 2, handler)
 		names = append(names, name)
 	}
+	jobs.Work(ctx, "execute-action", 2, agent.ExecuteActionHandler(pool, retrieval.NewEngine(pool)))
+	names = append(names, "execute-action")
 	logger.Info("worker started", "queues", names)
 	<-ctx.Done()
 	logger.Info("worker stopped")

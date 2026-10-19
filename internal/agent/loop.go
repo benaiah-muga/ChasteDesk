@@ -43,18 +43,6 @@ type TurnInput struct {
 	RecentConversations []string
 }
 
-type ToolOutcome struct {
-	OK    bool
-	Data  any
-	Error string
-}
-
-type Tool struct {
-	Declaration model.ToolDeclaration
-	Mode        ToolMode
-	Execute     func(ctx context.Context, args any) (ToolOutcome, error)
-}
-
 type Event struct {
 	OrgID          string `json:"orgId"`
 	ConversationID string `json:"conversationId"`
@@ -377,9 +365,9 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 				if tool.Mode == ModeApprovalRequired {
 					return t.requestApproval(call)
 				}
-				outcome, execErr := tool.Execute(ctx, call.Args)
+				outcome, execErr := tool.Execute(ToolCtx{RunContext: t.rc}, call.Args)
 				if execErr != nil {
-					outcome = ToolOutcome{OK: false, Error: execErr.Error()}
+					outcome = ToolResult{OK: false, Error: execErr.Error()}
 				}
 				t.steps = append(t.steps, map[string]any{"kind": "tool", "toolId": call.ToolID, "executed": true, "ok": outcome.OK})
 				if err := t.appendAudit("run.step", "tool", call.ToolID, map[string]any{"ok": outcome.OK}); err != nil {

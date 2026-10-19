@@ -20,17 +20,17 @@ func TestAgentPolicy(t *testing.T) {
 		{
 			Declaration: model.ToolDeclaration{ID: "get_weather", Description: "weather", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}},
 			Mode:        agent.ModeAutonomous,
-			Execute: func(context.Context, any) (agent.ToolOutcome, error) {
+			Execute: func(agent.ToolCtx, any) (agent.ToolResult, error) {
 				weatherExecuted = true
-				return agent.ToolOutcome{OK: true, Data: map[string]any{"temp": 20}}, nil
+				return agent.ToolResult{OK: true, Data: map[string]any{"temp": 20}}, nil
 			},
 		},
 		{
 			Declaration: model.ToolDeclaration{ID: "issue_refund", Description: "refund", Parameters: map[string]any{"type": "object", "properties": map[string]any{}}},
 			Mode:        agent.ModeApprovalRequired,
-			Execute: func(context.Context, any) (agent.ToolOutcome, error) {
+			Execute: func(agent.ToolCtx, any) (agent.ToolResult, error) {
 				refundExecuted = true
-				return agent.ToolOutcome{OK: true, Data: map[string]any{"refunded": true}}, nil
+				return agent.ToolResult{OK: true, Data: map[string]any{"refunded": true}}, nil
 			},
 		},
 	}
