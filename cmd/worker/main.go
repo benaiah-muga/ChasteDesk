@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"chastedesk/internal/agent"
+	"chastedesk/internal/analytics"
 	"chastedesk/internal/config"
 	"chastedesk/internal/db"
 	"chastedesk/internal/ingest"
@@ -50,7 +51,8 @@ func run() error {
 	engine := retrieval.NewEngine(pool)
 	jobs.Work(ctx, "execute-action", 2, agent.ExecuteActionHandler(pool, engine))
 	jobs.Work(ctx, "ai-respond", 2, agent.RespondHandler(pool, cfg.AppSecret, engine))
-	names = append(names, "execute-action", "ai-respond")
+	jobs.Work(ctx, "analytics-rollup", 2, analytics.Handler(pool))
+	names = append(names, "execute-action", "ai-respond", "analytics-rollup")
 	logger.Info("worker started", "queues", names)
 	<-ctx.Done()
 	logger.Info("worker stopped")

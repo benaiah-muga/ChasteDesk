@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+package views
+
+type AnalyticsCardView struct {
+	Total        string
+	AIResolution string
+	Escalation   string
+	MedianFirst  string
+	MedianRes    string
+}
+
+type AnalyticsTrendPoint struct {
+	Date  string
+	Total int
+}
+
+type AuditEventView struct {
+	ID        int64
+	Type      string
+	ActorType string
+	ActorID   string
+	Target    string
+	Payload   string
+	CreatedAt string
+}
+
+templ AnalyticsPage(cards *AnalyticsCardView, trend []AnalyticsTrendPoint) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@baseHead("Analytics — ChasteDesk")
+	</head>
+	<body>
+		<main>
+			<h1>Analytics</h1>
+			if cards == nil {
+				<p class="muted">No analytics yet — data appears as conversations resolve.</p>
+			} else {
+				<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px;">
+					<div class="card" aria-label="Total conversations" style="margin: 0;">
+						<div class="muted" style="font-size: 12px;">Total conversations</div>
+						<div style="font-size: 26px; font-weight: 600;">{ cards.Total }</div>
+					</div>
+					<div class="card" aria-label="AI resolution rate" style="margin: 0;">
+						<div class="muted" style="font-size: 12px;">AI resolution rate</div>
+						<div style="font-size: 26px; font-weight: 600;">{ cards.AIResolution }</div>
+					</div>
+					<div class="card" aria-label="Escalation rate" style="margin: 0;">
+						<div class="muted" style="font-size: 12px;">Escalation rate</div>
+						<div style="font-size: 26px; font-weight: 600;">{ cards.Escalation }</div>
+					</div>
+					<div class="card" aria-label="Median first response" style="margin: 0;">
+						<div class="muted" style="font-size: 12px;">Median first response</div>
+						<div style="font-size: 26px; font-weight: 600;">{ cards.MedianFirst }</div>
+					</div>
+					<div class="card" aria-label="Median resolution" style="margin: 0;">
+						<div class="muted" style="font-size: 12px;">Median resolution</div>
+						<div style="font-size: 26px; font-weight: 600;">{ cards.MedianRes }</div>
+					</div>
+				</div>
+				if len(trend) > 0 {
+					<section class="card">
+						<h2>14-day conversation trend</h2>
+						<table>
+							<thead>
+								<tr><th>Date</th><th>Conversations</th></tr>
+							</thead>
+							<tbody>
+								for _, point := range trend {
+									<tr><td>{ point.Date }</td><td>{ point.Total }</td></tr>
+								}
+							</tbody>
+						</table>
+					</section>
+				}
+			}
+		</main>
+	</body>
+	</html>
+}
+
+templ AuditPage(events []AuditEventView, typeFilter string, q string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		@baseHead("Audit log — ChasteDesk")
+	</head>
+	<body>
+		<main>
+			<h1>Audit log</h1>
+			<p class="muted">Append-only record of security-relevant actions. Payloads are redacted.</p>
+			<section class="card">
+				<form method="get" action="/dashboard/audit" class="row">
+					<div style="flex: 1;">
+						<label for="type">Type</label>
+						<input id="type" name="type" type="text" value={ typeFilter } placeholder="run.escalated"/>
+					</div>
+					<div style="flex: 1;">
+						<label for="q">Search</label>
+						<input id="q" name="q" type="text" value={ q } placeholder="type or target"/>
+					</div>
+					<div>
+						<button type="submit">Filter</button>
+					</div>
+				</form>
+			</section>
+			<section class="card">
+				if len(events) == 0 {
+					<p class="muted">No audit events match this filter.</p>
+				} else {
+					<table>
+						<thead>
+							<tr><th>When</th><th>Type</th><th>Actor</th><th>Target</th><th>Payload</th></tr>
+						</thead>
+						<tbody>
+							for _, event := range events {
+								<tr>
+									<td class="muted">{ event.CreatedAt }</td>
+									<td><code>{ event.Type }</code></td>
+									<td>{ event.ActorType }{ actorSuffix(event.ActorID) }</td>
+									<td>{ event.Target }</td>
+									<td>
+										if event.Payload != "" {
+											<details>
+												<summary>View</summary>
+												<pre style="white-space: pre-wrap; font-size: 12px;">{ event.Payload }</pre>
+											</details>
+										} else {
+											<span class="muted">—</span>
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</section>
+		</main>
+	</body>
+	</html>
+}
+
+func actorSuffix(actorID string) string {
+	if actorID == "" {
+		return ""
+	}
+	return " (" + actorID + ")"
+}

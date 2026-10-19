@@ -127,7 +127,7 @@ type AuditRow struct {
 	CreatedAt  time.Time       `json:"createdAt"`
 }
 
-func (r *Repo) ListAuditEvents(ctx RepoCtx, typeFilter string, limit int) ([]AuditRow, error) {
+func (r *Repo) ListAuditEvents(ctx RepoCtx, typeFilter, q string, limit int) ([]AuditRow, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -137,7 +137,8 @@ func (r *Repo) ListAuditEvents(ctx RepoCtx, typeFilter string, limit int) ([]Aud
 	rows, err := r.pool.Query(ctx.Ctx, `select id, type, actor_type, actor_id, target_type, target_id, payload, created_at
 		from audit_events
 		where org_id = $1 and ($2 = '' or type = $2)
-		order by id desc limit $3`, ctx.OrgID, typeFilter, limit)
+		  and ($3 = '' or type ilike '%' || $3 || '%' or target_type ilike '%' || $3 || '%')
+		order by id desc limit $4`, ctx.OrgID, typeFilter, q, limit)
 	if err != nil {
 		return nil, err
 	}

@@ -38,6 +38,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("GET /api/onboarding/status", s.handleOnboardingStatus)
 	mux.HandleFunc("POST /api/onboarding/complete", s.handleOnboardingComplete)
 	mux.HandleFunc("GET /api/audit", s.handleAuditList)
+	mux.HandleFunc("GET /api/analytics/summary", s.handleAnalyticsSummary)
+	mux.HandleFunc("POST /api/analytics/rollup", s.handleAnalyticsRollup)
 	mux.HandleFunc("GET /api/actions", s.handleActionsList)
 	mux.HandleFunc("POST /api/actions/decide", s.handleActionDecide)
 	mux.HandleFunc("GET /api/conversations/stream", s.handleConversationsStream)
@@ -96,6 +98,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /dashboard/inbox/{id}/resolve", s.handleInboxResolveForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/copilot", s.handleInboxCopilotForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/copilot/send", s.handleInboxCopilotSendForm)
+	mux.HandleFunc("GET /dashboard/analytics", s.handleAnalyticsPage)
+	mux.HandleFunc("GET /dashboard/audit", s.handleAuditPage)
 	mux.HandleFunc("/", s.handleNotFound)
 	return s.withRequestLog(mux)
 }

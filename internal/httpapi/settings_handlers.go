@@ -27,12 +27,12 @@ func (s *Server) handleAuditList(w http.ResponseWriter, r *http.Request) {
 			limit = parsed
 		}
 	}
-	rows, err := s.repo.ListAuditEvents(db.WithOrg(r.Context(), sess.OrgID), r.URL.Query().Get("type"), limit)
+	rows, err := s.repo.ListAuditEvents(db.WithOrg(r.Context(), sess.OrgID), r.URL.Query().Get("type"), r.URL.Query().Get("q"), limit)
 	if err != nil {
 		s.respondError(w, r, err)
 		return
 	}
-	writeData(w, http.StatusOK, map[string]any{"events": rows})
+	writeData(w, http.StatusOK, rows)
 }
 
 func (s *Server) handleProvidersList(w http.ResponseWriter, r *http.Request) {
