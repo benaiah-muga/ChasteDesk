@@ -290,18 +290,19 @@ func (sw *streamWriter) close() {
 func (s *Server) pushLatestAgentReply(ctx context.Context, sw *streamWriter, orgID, conversationID string) {
 	var (
 		messageID string
+		role      string
 		content   string
 		citations []byte
 	)
 	err := s.pool.QueryRow(ctx,
-		`select id, content, citations from messages
-		  where conversation_id = $1 and org_id = $2 and role = 'agent_ai'
-		  order by created_at desc limit 1`, conversationID, orgID).Scan(&messageID, &content, &citations)
+		`select id, role::text, content, citations from messages
+		  where conversation_id = $1 and org_id = $2 and role in ('agent_ai', 'agent_human')
+		  order by created_at desc limit 1`, conversationID, orgID).Scan(&messageID, &role, &content, &citations)
 	if err != nil {
 		return
 	}
 	sw.send("message", map[string]any{
-		"id": messageID, "role": "agent_ai", "content": content, "citations": json.RawMessage(citations),
+		"id": messageID, "role": role, "content": content, "citations": json.RawMessage(citations),
 	})
 }
 

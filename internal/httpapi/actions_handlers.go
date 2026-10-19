@@ -2,6 +2,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 
@@ -49,60 +50,59 @@ func (s *Server) handleActionDecide(w http.ResponseWriter, r *http.Request) {
 		writeErrorBody(w, http.StatusBadRequest, "bad_request", "decision must be approve or reject")
 		return
 	}
-	ctx := db.WithOrg(r.Context(), sess.OrgID)
-	action, err := s.repo.GetAction(ctx, body.ActionID)
+	status, err := s.decideAction(r.Context(), sess.OrgID, sess.UserID, body.ActionID, body.Decision)
 	if err != nil {
 		s.respondError(w, r, err)
 		return
+	}
+	writeData(w, http.StatusOK, map[string]any{"status": status})
+}
+
+func (s *Server) decideAction(ctx context.Context, orgID, userID, actionID, decision string) (string, error) {
+	ctxOrg := db.WithOrg(ctx, orgID)
+	action, err := s.repo.GetAction(ctxOrg, actionID)
+	if err != nil {
+		return "", err
 	}
 	if action.Status != "pending_approval" {
-		s.respondError(w, r, apperr.Conflict("action is "+action.Status+", not pending"))
-		return
+		return "", apperr.Conflict("action is " + action.Status + ", not pending")
 	}
 
-	if body.Decision == "reject" {
-		if _, err := s.repo.DecideAction(ctx, action.ID, "rejected_before_exec", sess.UserID); err != nil {
-			s.respondError(w, r, err)
-			return
+	if decision == "reject" {
+		if _, err := s.repo.DecideAction(ctxOrg, action.ID, "rejected_before_exec", userID); err != nil {
+			return "", err
 		}
-		if err := s.repo.WriteAudit(ctx, db.AuditInput{
-			ActorType: db.ActorUser, ActorID: &sess.UserID, Type: "action.rejected",
+		if err := s.repo.WriteAudit(ctxOrg, db.AuditInput{
+			ActorType: db.ActorUser, ActorID: &userID, Type: "action.rejected",
 			TargetType: "action", TargetID: &action.ID, Payload: map[string]any{},
 		}); err != nil {
-			s.respondError(w, r, err)
-			return
+			return "", err
 		}
-		writeData(w, http.StatusOK, map[string]any{"status": "rejected_before_exec"})
-		return
+		return "rejected_before_exec", nil
 	}
 
-	decided, err := s.repo.DecideAction(ctx, action.ID, "approved", sess.UserID)
+	decided, err := s.repo.DecideAction(ctxOrg, action.ID, "approved", userID)
 	if err != nil {
-		s.respondError(w, r, err)
-		return
+		return "", err
 	}
 	if !decided {
-		s.respondError(w, r, apperr.Conflict("action is no longer pending"))
-		return
+		return "", apperr.Conflict("action is no longer pending")
 	}
-	if err := s.repo.WriteAudit(ctx, db.AuditInput{
-		ActorType: db.ActorUser, ActorID: &sess.UserID, Type: "action.approved",
+	if err := s.repo.WriteAudit(ctxOrg, db.AuditInput{
+		ActorType: db.ActorUser, ActorID: &userID, Type: "action.approved",
 		TargetType: "action", TargetID: &action.ID, Payload: map[string]any{},
 	}); err != nil {
-		s.respondError(w, r, err)
-		return
+		return "", err
 	}
-	if _, err := s.queue.Send(r.Context(), "execute-action", map[string]any{
-		"orgId": sess.OrgID, "actionId": action.ID,
+	if _, err := s.queue.Send(ctx, "execute-action", map[string]any{
+		"orgId": orgID, "actionId": action.ID,
 	}, queue.SendOptions{SingletonKey: "action:" + action.ID}); err != nil {
-		s.respondError(w, r, err)
-		return
+		return "", err
 	}
-	if _, err := s.repo.Pool().Exec(r.Context(),
+	if _, err := s.repo.Pool().Exec(ctx,
 		`insert into messages (org_id, conversation_id, role, content) values ($1, $2, 'system', $3)`,
-		sess.OrgID, action.ConversationID, "Action approved — executing."); err != nil {
-		s.respondError(w, r, err)
-		return
+		orgID, action.ConversationID, "Action approved — executing."); err != nil {
+		return "", err
 	}
-	writeData(w, http.StatusOK, map[string]any{"status": "approved"})
+	return "approved", nil
 }
