@@ -15,7 +15,7 @@ import (
 
 func newTestHandler() http.Handler {
 	cfg := config.Config{Port: 3000, AppURL: "http://localhost:3000", LogLevel: "error"}
-	return New(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return New(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 }
 
 func TestHealth(t *testing.T) {
