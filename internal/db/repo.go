@@ -93,3 +93,7 @@ func writeAuditQ(ctx context.Context, q Queryer, orgID *string, in AuditInput) e
 		orgID, string(in.ActorType), in.ActorID, in.Type, in.TargetType, in.TargetID, string(payload))
 	return err
 }
+
+func WriteAuditQuery(ctx context.Context, q Queryer, orgID string, in AuditInput) error {
+	return writeAuditQ(ctx, q, &orgID, in)
+}

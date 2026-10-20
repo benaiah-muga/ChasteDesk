@@ -95,6 +95,20 @@ func TestQueueLifecycleRetriesFailuresAndDedupesSingletons(t *testing.T) {
 	if status != "ready" {
 		t.Fatalf("slow source did not become ready: %s", status)
 	}
+	deadline = time.Now().Add(15 * time.Second)
+	completed := false
+	for time.Now().Before(deadline) {
+		var value string
+		err := app.pool.QueryRow(ctx, `select status from jobs where name = 'ingest-url' and singleton_key = $1 order by created_at desc limit 1`, singletonKey).Scan(&value)
+		if err == nil && value == "completed" {
+			completed = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !completed {
+		t.Fatal("ingest job did not reach completed before the next send")
+	}
 
 	delayMs.Store(0)
 	third, err := app.queue.Send(ctx, "ingest-url", map[string]any{

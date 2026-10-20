@@ -43,6 +43,7 @@ All notable changes to ChasteDesk. The format follows Keep a Changelog, and vers
 - Action completion being marked before the audit and customer message were written.
 - Failed action verification not escalating the conversation to a human.
 - First response timestamps being written after the SSE reply instead of before it.
+- Knowledge ingest audit rows being written after the source status update instead of in the same transaction.
 - The empty static HTMX asset.
 
 ### Removed

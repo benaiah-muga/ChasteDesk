@@ -55,10 +55,16 @@ func (d Deps) IndexDocument(ctx context.Context, orgID, sourceID string, doc ret
 		sourceID, newVersion, orgID); err != nil {
 		return 0, err
 	}
+	if err := db.WriteAuditQuery(ctx, tx, orgID, db.AuditInput{
+		ActorType: db.ActorSystem, Type: "knowledge.ingest.completed",
+		TargetType: "knowledge_source", TargetID: &sourceID,
+		Payload: map[string]any{"version": newVersion, "chunks": len(chunks)},
+	}); err != nil {
+		return 0, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
-	d.writeAudit(ctx, orgID, "knowledge.ingest.completed", sourceID, map[string]any{"version": newVersion, "chunks": len(chunks)})
 	return newVersion, nil
 }
 
@@ -69,22 +75,25 @@ func (d Deps) MarkSourceFailed(ctx context.Context, orgID, sourceID, message str
 	}
 	failedCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if _, err := d.Pool.Exec(failedCtx, `update knowledge_sources set status = 'failed', error = $3, updated_at = now() where id = $1 and org_id = $2`,
+	tx, err := d.Pool.Begin(failedCtx)
+	if err != nil {
+		return
+	}
+	defer func() { _ = tx.Rollback(failedCtx) }()
+	if _, err := tx.Exec(failedCtx, `update knowledge_sources set status = 'failed', error = $3, updated_at = now() where id = $1 and org_id = $2`,
 		sourceID, orgID, truncated); err != nil {
 		return
 	}
-	d.writeAudit(failedCtx, orgID, "knowledge.ingest.failed", sourceID, map[string]any{"error": truncated})
-}
-
-func (d Deps) writeAudit(ctx context.Context, orgID, eventType, sourceID string, payload map[string]any) {
-	repo := db.NewRepo(d.Pool)
-	_ = repo.WriteAuditNoOrg(ctx, &orgID, db.AuditInput{
+	if err := db.WriteAuditQuery(failedCtx, tx, orgID, db.AuditInput{
 		ActorType:  db.ActorSystem,
-		Type:       eventType,
+		Type:       "knowledge.ingest.failed",
 		TargetType: "knowledge_source",
 		TargetID:   &sourceID,
-		Payload:    payload,
-	})
+		Payload:    map[string]any{"error": truncated},
+	}); err != nil {
+		return
+	}
+	_ = tx.Commit(failedCtx)
 }
 
 func (d Deps) IngestURL(ctx context.Context, orgID, sourceID, rawURL string) error {
