@@ -38,7 +38,7 @@ Relevant endpoints:
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/auth/sign-in/email` | Sign in and set the session cookie |
-| `POST` | `/api/auth/sign-up/email` | Create a user account (first-run uses `/api/bootstrap`) |
+| `POST` | `/api/auth/sign-up/email` | Create a credential account. Organization membership comes from bootstrap or an invitation. |
 | `POST` | `/api/auth/sign-out` | Revoke the current session |
 | `GET` | `/api/auth/get-session` | Return the current user and session |
 | `POST` | `/api/bootstrap` | Create the first organization and owner. Returns 409 after the first call |
