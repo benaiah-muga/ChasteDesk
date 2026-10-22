@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"chastedesk/internal/db"
@@ -41,6 +42,8 @@ type TurnInput struct {
 	History             []HistoryMessage
 	Customer            Customer
 	RecentConversations []string
+	EmbeddingModel      string
+	QueryEmbedding      []float64
 }
 
 type Event struct {
@@ -177,12 +180,18 @@ func (t *turn) escalate(reason EscalationReason, recommendedNextStep, errMsg str
 	}
 	status := "escalated"
 	stringReason := string(reason)
-	if err := t.finishRun(status, &stringReason, nil); err != nil {
+	var failure *string
+	if errMsg != "" {
+		failure = &errMsg
+	}
+	if err := t.finishRun(status, &stringReason, failure); err != nil {
 		return TurnResult{}, err
 	}
-	if err := t.appendAudit("run.escalated", "conversation", t.rc.ConversationID, map[string]any{
-		"reason": reason, "recommendedNextStep": recommendedNextStep,
-	}); err != nil {
+	payload := map[string]any{"reason": reason, "recommendedNextStep": recommendedNextStep}
+	if errMsg != "" {
+		payload["error"] = errMsg
+	}
+	if err := t.appendAudit("run.escalated", "conversation", t.rc.ConversationID, payload); err != nil {
 		return TurnResult{}, err
 	}
 	if err := t.publish("conversation.updated"); err != nil {
@@ -207,12 +216,6 @@ func (t *turn) findTool(toolID string) *Tool {
 		}
 	}
 	return nil
-}
-
-type toolCallEnvelope struct {
-	ID     string `json:"id"`
-	ToolID string `json:"toolId"`
-	Args   any    `json:"args"`
 }
 
 func (t *turn) requestApproval(call model.ToolCall) (TurnResult, error) {
@@ -268,6 +271,7 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 	if deps.Retrieval != nil {
 		evidence, err := deps.Retrieval.Search(ctx, rc.OrgID, retrieval.SearchQuery{
 			Text: input.CustomerMessage, Scopes: policy.KnowledgeScopes, Limit: 8,
+			EmbeddingModel: input.EmbeddingModel, QueryEmbedding: input.QueryEmbedding,
 		})
 		if err != nil {
 			return TurnResult{}, err
@@ -275,7 +279,7 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 		t.evidence = evidence
 	}
 	best := BestEvidenceConfidence(t.evidence)
-	retrievalStep := map[string]any{"kind": "retrieval", "evidence": len(t.evidence), "bestConfidence": nil}
+	retrievalStep := map[string]any{"kind": "retrieval", "evidence": len(t.evidence), "bestConfidence": nil, "vector": len(input.QueryEmbedding) > 0, "embeddingModel": input.EmbeddingModel}
 	if best != nil {
 		retrievalStep["bestConfidence"] = *best
 	}
@@ -313,6 +317,7 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 			ModelID: "agent", Messages: messages, Tools: declarations, MaxOutputTokens: policy.Budgets.MaxOutputTokens,
 		})
 		if err != nil {
+			slog.Error("agent model call failed", "org", t.rc.OrgID, "conversation", t.rc.ConversationID, "error", err)
 			return t.escalate(ReasonToolFailure, "The AI provider failed; a human should handle this conversation.", err.Error())
 		}
 		t.usage.InputTokens += result.Usage.InputTokens
@@ -330,17 +335,19 @@ func RunTurn(ctx context.Context, rc RunContext, policy AgentPolicy, input TurnI
 		t.steps = append(t.steps, modelStep)
 
 		if result.FinishReason == model.FinishToolCalls && len(result.ToolCalls) > 0 {
-			envelopes := make([]toolCallEnvelope, 0, len(result.ToolCalls))
-			for _, call := range result.ToolCalls {
-				envelopes = append(envelopes, toolCallEnvelope{ID: call.ID, ToolID: call.ToolID, Args: call.Args})
-			}
-			encodedCalls, err := json.Marshal(envelopes)
-			if err != nil {
-				return TurnResult{}, err
-			}
-			messages = append(messages, model.Message{Role: "assistant", Content: string(encodedCalls)})
 			for _, call := range result.ToolCalls {
 				toolCallCount++
+				encodedArgs, err := json.Marshal(call.Args)
+				if err != nil {
+					return TurnResult{}, err
+				}
+				reasoning := ""
+				if result.Reasoning != nil {
+					reasoning = *result.Reasoning
+				}
+				messages = append(messages, model.Message{
+					Role: "assistant", Content: string(encodedArgs), ToolCallID: call.ID, ToolName: call.ToolID, Reasoning: reasoning,
+				})
 				if toolCallCount > policy.Budgets.MaxToolCalls {
 					return t.escalate(ReasonBudgetExhausted, "Too many tool attempts; a human should take over.", "")
 				}

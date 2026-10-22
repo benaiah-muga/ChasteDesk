@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,17 +23,22 @@ type AiRespondData struct {
 	ConversationID string `json:"conversationId"`
 }
 
-func RespondHandler(pool *pgxpool.Pool, appSecret string, engine *retrieval.Engine) queue.Handler {
+type QueryEmbedder interface {
+	Model() string
+	Embed(ctx context.Context, texts []string) ([][]float64, error)
+}
+
+func RespondHandler(pool *pgxpool.Pool, appSecret string, engine *retrieval.Engine, embedder QueryEmbedder) queue.Handler {
 	return func(ctx context.Context, job queue.Job) error {
 		var data AiRespondData
 		if err := json.Unmarshal(job.Data, &data); err != nil {
 			return err
 		}
-		return Respond(ctx, pool, appSecret, engine, data)
+		return Respond(ctx, pool, appSecret, engine, embedder, data)
 	}
 }
 
-func Respond(ctx context.Context, pool *pgxpool.Pool, appSecret string, engine *retrieval.Engine, data AiRespondData) error {
+func Respond(ctx context.Context, pool *pgxpool.Pool, appSecret string, engine *retrieval.Engine, embedder QueryEmbedder, data AiRespondData) error {
 	var (
 		customerID string
 		channel    string
@@ -100,6 +106,20 @@ func Respond(ctx context.Context, pool *pgxpool.Pool, appSecret string, engine *
 		return err
 	}
 
+	var (
+		queryEmbedding []float64
+		embeddingModel string
+	)
+	if embedder != nil {
+		vectors, embedErr := embedder.Embed(ctx, []string{customerMessage})
+		if embedErr != nil {
+			slog.Warn("query embedding failed; continuing with full-text retrieval", "org", data.OrgID, "conversation", data.ConversationID, "error", embedErr)
+		} else if len(vectors) == 1 {
+			queryEmbedding = vectors[0]
+			embeddingModel = embedder.Model()
+		}
+	}
+
 	tools := buildPolicyTools(pool, engine, policy)
 
 	providerID := policy.Model.ProviderID
@@ -158,6 +178,8 @@ func Respond(ctx context.Context, pool *pgxpool.Pool, appSecret string, engine *
 		History:             history,
 		Customer:            Customer{Name: customerName, Email: customerMail, Attributes: customerAttributes},
 		RecentConversations: recentConversations,
+		EmbeddingModel:      embeddingModel,
+		QueryEmbedding:      queryEmbedding,
 	}, deps); err != nil {
 		return err
 	}

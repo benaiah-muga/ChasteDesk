@@ -19,10 +19,18 @@ const required = [
   "docs/SECURITY.md",
   "docs/DEVELOPMENT.md",
   "docs/ROADMAP.md",
+  "docs/PRODUCTION_READINESS.md",
+  "docs/SCREENSHOTS.md",
+  "docs/assets/chastedesk-banner.png",
+  "docs/assets/inbox-feature.png",
+  "docs/assets/sla.png",
+  "internal/web/static/favicon-32.png",
   "docs/assets/overview.png",
   "docs/assets/inbox.png",
   "docs/assets/widget.png",
   "docs/assets/analytics.png",
+  "docs/assets/quick-replies.png",
+  "docs/assets/inbox-thread-dark.png",
 ];
 
 const failures = [];
@@ -39,7 +47,7 @@ if (/localhost:3000/.test(readme) === false) failures.push("README must document
 if (readme.includes("pnpm") && !readme.includes("screenshot")) failures.push("README should not present pnpm as the app runtime");
 
 const index = fs.readFileSync(path.join(root, "docs/README.md"), "utf8");
-for (const target of ["ARCHITECTURE.md", "SELF_HOSTING.md", "API.md", "OPERATIONS.md", "SECURITY.md", "DEVELOPMENT.md", "ROADMAP.md"]) {
+for (const target of ["ARCHITECTURE.md", "SELF_HOSTING.md", "API.md", "OPERATIONS.md", "SECURITY.md", "DEVELOPMENT.md", "ROADMAP.md", "PRODUCTION_READINESS.md"]) {
   if (!index.includes(target)) failures.push(`docs index missing ${target}`);
 }
 

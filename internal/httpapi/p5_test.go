@@ -324,12 +324,12 @@ func TestSettingsPagesAndWidget(t *testing.T) {
 		t.Fatalf("provider save failed: %d", save.status)
 	}
 
-	redirect := app.getPageRaw(t, "/dashboard/knowledge", newTestJar())
+	redirect := app.getPageRaw(t, "/legacy/dashboard/knowledge", newTestJar())
 	if redirect.status != http.StatusSeeOther {
 		t.Fatalf("unauthenticated page must redirect, got %d", redirect.status)
 	}
 
-	settings := app.getPage(t, "/dashboard/settings", jar)
+	settings := app.getPage(t, "/legacy/dashboard/settings", jar)
 	if settings.status != http.StatusOK {
 		t.Fatalf("settings page failed: %d", settings.status)
 	}
@@ -375,7 +375,7 @@ func TestKnowledgeUIGate(t *testing.T) {
 	app := startWorkerTestApp(t, uploads)
 	jar, _ := app.bootstrapAndSignIn(t, "UI Org", "owner@ui.test")
 
-	page := app.getPage(t, "/dashboard/knowledge", jar)
+	page := app.getPage(t, "/legacy/dashboard/knowledge", jar)
 	if page.status != http.StatusOK {
 		t.Fatalf("knowledge page failed: %d", page.status)
 	}
@@ -417,7 +417,7 @@ func TestKnowledgeUIGate(t *testing.T) {
 		t.Fatal("no source id discovered")
 	}
 
-	page = app.getPage(t, "/dashboard/knowledge", jar)
+	page = app.getPage(t, "/legacy/dashboard/knowledge", jar)
 	html = string(page.body)
 	if !strings.Contains(html, "ready") || strings.Contains(html, "No sources yet.") {
 		t.Fatalf("knowledge page did not show the ready source")
@@ -437,7 +437,7 @@ func TestKnowledgeUIGate(t *testing.T) {
 	if scope != "internal" {
 		t.Fatalf("scope toggle did not persist: %s", scope)
 	}
-	page = app.getPage(t, "/dashboard/knowledge", jar)
+	page = app.getPage(t, "/legacy/dashboard/knowledge", jar)
 	if !strings.Contains(string(page.body), "internal") {
 		t.Fatal("scope toggle did not persist to internal on reload")
 	}
@@ -446,7 +446,7 @@ func TestKnowledgeUIGate(t *testing.T) {
 	if deleted.status != http.StatusSeeOther {
 		t.Fatalf("delete failed: %d", deleted.status)
 	}
-	page = app.getPage(t, "/dashboard/knowledge", jar)
+	page = app.getPage(t, "/legacy/dashboard/knowledge", jar)
 	if strings.Contains(string(page.body), siteServer.URL) || strings.Contains(string(page.body), "ChasteDesk Widget Help") {
 		t.Fatal("deleted source still visible")
 	}
@@ -545,7 +545,7 @@ func TestWizardFlowGate(t *testing.T) {
 	app := startWorkerTestApp(t, t.TempDir())
 	jar, _ := app.bootstrapAndSignIn(t, "Wizard Org", "owner@wizard.test")
 
-	page := app.getPage(t, "/onboarding", jar)
+	page := app.getPage(t, "/legacy/onboarding", jar)
 	if page.status != http.StatusOK {
 		t.Fatalf("onboarding page failed: %d", page.status)
 	}
@@ -562,7 +562,7 @@ func TestWizardFlowGate(t *testing.T) {
 	if saveProvider.status != http.StatusSeeOther {
 		t.Fatalf("wizard provider save failed: %d %s", saveProvider.status, saveProvider.body)
 	}
-	page = app.getPage(t, "/onboarding", jar)
+	page = app.getPage(t, "/legacy/onboarding", jar)
 	if !strings.Contains(string(page.body), "done") {
 		t.Fatal("wizard did not mark the provider step done")
 	}
@@ -571,7 +571,7 @@ func TestWizardFlowGate(t *testing.T) {
 	if addKnowledge.status != http.StatusSeeOther {
 		t.Fatalf("wizard add knowledge failed: %d %s", addKnowledge.status, addKnowledge.body)
 	}
-	page = app.getPage(t, "/onboarding", jar)
+	page = app.getPage(t, "/legacy/onboarding", jar)
 	if !strings.Contains(string(page.body), "done") {
 		t.Fatal("wizard did not mark the knowledge step done")
 	}
@@ -580,7 +580,7 @@ func TestWizardFlowGate(t *testing.T) {
 	if finish.status != http.StatusSeeOther {
 		t.Fatalf("wizard finish failed: %d", finish.status)
 	}
-	page = app.getPage(t, "/onboarding", jar)
+	page = app.getPage(t, "/legacy/onboarding", jar)
 	content := string(page.body)
 	if !strings.Contains(content, "ready") || !strings.Contains(content, "desk is ready") {
 		t.Fatal("wizard did not reach the finish state")
@@ -601,7 +601,7 @@ func TestWizardFlowGate(t *testing.T) {
 		t.Fatal("knowledgeAdded must be true")
 	}
 
-	anonymous := app.getPageRaw(t, "/onboarding", newTestJar())
+	anonymous := app.getPageRaw(t, "/legacy/onboarding", newTestJar())
 	if anonymous.status != http.StatusSeeOther {
 		t.Fatalf("anonymous visitor must be redirected to login, got %d", anonymous.status)
 	}

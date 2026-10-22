@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/mark.svg" alt="ChasteDesk mark" width="56" height="56" />
+<img src="docs/assets/chastedesk-banner.png" alt="ChasteDesk, AI customer support platform" width="100%" />
 
 # ChasteDesk
 
@@ -24,7 +24,7 @@ ChasteDesk is an AI-native customer support desk you run yourself. It connects t
 
 It is built for small support teams, privacy-sensitive products, and operators who want the whole desk in their own deployment: a Go server, a worker, and Postgres.
 
-![ChasteDesk overview](docs/assets/overview.png)
+![ChasteDesk inbox and ticket thread](docs/assets/inbox-feature.png)
 
 ## Why ChasteDesk
 
@@ -41,15 +41,17 @@ Most AI support tools ask you to trust a black box. ChasteDesk takes the opposit
 - Structure-aware chunking with heading breadcrumbs and a 500 to 800 token target.
 - Citation enforcement in the agent loop: a missing or invented citation escalates the conversation.
 - Knowledge scopes: public sources can be quoted to customers, internal sources can inform the agent but are never quoted.
-- Works with OpenAI, Anthropic, Google AI, Ollama, and any OpenAI-compatible endpoint.
+- Works with OpenAI, Anthropic, Google AI, DeepSeek, Ollama, and any OpenAI-compatible endpoint.
 - Degrades honestly with zero providers: the desk still works and routes every conversation to a human.
 
 ### A desk designed for humans
 - Three-pane inbox with filters, search, customer context, approval queue, and copilot drafts that are never sent automatically.
+- Ticket operations with human ticket numbers, priority, tags, snooze, close and reopen, bulk actions, priority sorting, and shared quick replies.
+- Configurable SLA targets by priority, first-response and resolution deadlines, breach filters, and signed breach alerts.
 - Handoff packages that explain the problem, what was checked, the evidence used, and the recommended next step.
 - Global approvals page, customers directory, knowledge health, analytics, and an append-only audit log.
 - Invite teammates with a one-time link and role-based access for owner, admin, and agent.
-- Keyboard command palette, dark mode, responsive layouts from 320 px up.
+- Keyboard command palette, a visible dark-mode switch, a live topbar clock, and responsive layouts from 320 px up.
 
 ### Channels and operations
 - Embeddable vanilla-JS widget with Shadow DOM isolation, streaming replies, history restore, cross-origin CORS, and themed styling.
@@ -105,11 +107,7 @@ With no AI provider configured, every conversation is escalated with an explanat
 
 ## Screenshots
 
-| Inbox | Widget |
-| --- | --- |
-| ![Inbox with citations and approvals](docs/assets/inbox.png) | ![Embedded widget](docs/assets/widget.png) |
-
-![Analytics](docs/assets/analytics.png)
+The README features the banner and the inbox screenshot. The full product gallery lives in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
 ## Configuration
 
@@ -125,6 +123,12 @@ The web process and worker share one configuration source. Compose reads `.env` 
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, or `error`. |
 | `WORKER_CONCURRENCY` | no | `4` in Compose, `2` in code | Workers per job queue. |
 | `UPLOADS_DIR` | worker | `data/uploads` | Local directory for uploaded knowledge files. |
+| `EMBEDDING_PROVIDER` | no | none | Optional embedding provider, for example `ollama` or `openai-compatible`. |
+| `EMBEDDING_MODEL` | with provider | none | Embedding model name. Reindex sources after changing it. |
+| `EMBEDDING_BASE_URL` | no | provider default | OpenAI-compatible or Ollama base URL. |
+| `METRICS_TOKEN` | no | none | Bearer token for `/metrics`. The endpoint is hidden in production when unset. |
+| `ALERT_WEBHOOK_URL` | no | none | Receives HTTP 5xx and failed-job alerts. |
+| `ALERT_WEBHOOK_SECRET` | no | none | HMAC-SHA256 secret for the alert webhook signature. |
 | `POSTGRES_PASSWORD` | compose | `chastedesk` | Password for the bundled Postgres. Use a strong value in production. |
 
 `CHASTESK_INGEST_ALLOW_PRIVATE=1` is a test-only escape hatch for the crawler. It is ignored when `APP_ENV=production`. Never enable it on a public deployment.
@@ -136,7 +140,7 @@ See [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) for TLS, backups, upgrades, and
 ```mermaid
 flowchart LR
   Customer[Customer] -->|widget.js or REST| Web[Go web process]
-  Operator[Support operator] -->|HTMX dashboard| Web
+  Operator[Support operator] -->|React console| Web
   Web --> DB[(Postgres 16 + pgvector)]
   Web -->|jobs| DB
   Worker[Go worker] --> DB
@@ -144,12 +148,12 @@ flowchart LR
   Web -->|LISTEN/NOTIFY| Operator
 ```
 
-- **Web** (`cmd/web`): HTTP server, sessions, dashboard, widget API, REST channel, SSE, migrations on boot.
+- **Web** (`cmd/web`): HTTP server, sessions, React console, widget API, REST channel, SSE, migrations on boot.
 - **Worker** (`cmd/worker`): ingestion, embedding, AI runs, action execution, analytics rollups.
 - **Migrate** (`cmd/migrate`): one-shot migration runner used by Compose. The web process also migrates on boot.
 - **Postgres**: the only stateful dependency. It holds domain data, the job queue, full-text indexes, vectors, sessions, rate limits, and the append-only audit log.
 
-The dashboard is server-rendered with [templ](https://templ.guide/) and HTMX. The widget is dependency-free vanilla JavaScript.
+The operator console is React 19 with Vite, Tailwind CSS v4, and shadcn-style Radix primitives. Build output is committed and embedded in the Go binary, so self-hosting does not need Node. The legacy Go pages remain under `/legacy/` for compatibility. The widget is dependency-free vanilla JavaScript.
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -174,10 +178,11 @@ go build ./...
 go test ./...
 go vet ./...
 gofmt -l .
-go tool templ generate   # after editing .templ files
+npm --prefix ui run typecheck
+npm --prefix ui run build
 ```
 
-The integration tests start an ephemeral pgvector container through Docker. If Docker is unavailable those tests skip.
+The console source lives in `ui/`. Its production build is written to `internal/web/static/console` and embedded in the Go binary. Node 22+ is only required when changing the console. The integration tests start an ephemeral pgvector container through Docker. If Docker is unavailable those tests skip.
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the UI system, conventions, and test layout.
 
@@ -240,13 +245,15 @@ The historical Next.js implementation under `apps/` and `packages/` is frozen re
 - [Operations runbook](docs/OPERATIONS.md)
 - [Security](docs/SECURITY.md)
 - [Development](docs/DEVELOPMENT.md)
+- [Production readiness](docs/PRODUCTION_READINESS.md)
+- [Screenshot gallery](docs/SCREENSHOTS.md)
 - [Design system](design.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
 
 ## Status
 
-ChasteDesk is an **M1 preview**. The core loop works end to end: setup, knowledge ingestion, cited answers, escalation, approvals, inbox, analytics, audit, widget, REST, and self-host deployment. Multi-organization workspaces, email delivery, site-wide crawling, evaluation tooling, and SCIM are on the [roadmap](docs/ROADMAP.md).
+ChasteDesk is an **M1 preview**. The core loop works end to end: setup, knowledge ingestion, cited answers, escalation, approvals, inbox, ticket operations, quick replies, analytics, audit, widget, REST, and self-host deployment. It is suitable for a controlled single-team pilot; email delivery, SSO, two-factor authentication, SLA policies, and multi-organization hosting are still on the [roadmap](docs/ROADMAP.md). Read the candid [production readiness](docs/PRODUCTION_READINESS.md) assessment before exposing an instance.
 
 ## Contributing
 

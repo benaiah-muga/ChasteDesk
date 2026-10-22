@@ -2,6 +2,22 @@
 
 This is the practical guide for running ChasteDesk. It assumes the Compose deployment in `docker-compose.yml`.
 
+## Metrics, request tracing, and alerts
+
+The web process exposes Prometheus metrics at `GET /metrics`:
+
+- HTTP request counts and duration by method, route pattern, and status.
+- In-flight requests, process start time, and database pool connections.
+- Background job counts by queue and status.
+- AI run outcomes.
+- Alert delivery successes and failures.
+
+Set `METRICS_TOKEN` to require `Authorization: Bearer <token>`. In production the endpoint returns 404 when no token is configured, so scrape it through an authenticated internal endpoint.
+
+Every response carries `X-Request-ID`. Incoming IDs are accepted when they match the safe correlation-ID format; otherwise the server generates one. Request logs include the same ID, method, route pattern, status, and duration. This is request-correlated tracing, not distributed span tracing.
+
+Set `ALERT_WEBHOOK_URL` to receive JSON alerts for HTTP 5xx responses and failed background jobs. Alerts are throttled to once per event per minute. If `ALERT_WEBHOOK_SECRET` is set, the body is signed with HMAC-SHA256 in `X-ChasteDesk-Signature`. Alerts include the request ID or job ID, route or queue, status where relevant, and a timestamp. They do not include response bodies, provider keys, or customer messages.
+
 ## Daily checks
 
 ```bash
@@ -50,6 +66,12 @@ docker run --rm -v chastedesk_uploads:/data -v "$PWD/backups":/backup alpine \
   tar xzf /backup/uploads.tgz -C /data
 docker compose start web worker
 ```
+
+## SLA breaches
+
+SLA policies are configured under **Settings → SLA policies**. Each priority has a first-response target and a resolution target. Saving a policy recalculates deadlines for open tickets from their original creation time.
+
+The worker scans active tickets every minute. New first-response or resolution breaches are recorded in `sla_breaches` and sent to `ALERT_WEBHOOK_URL` when configured. The inbox supports `?sla=breached`, and the overview attention queue shows the current breach count. Breach records are internal audit data; the console does not delete them when a ticket is resolved.
 
 ## Queue stuck or backing up
 

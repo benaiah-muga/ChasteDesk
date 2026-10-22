@@ -10,7 +10,7 @@
   "description": "Self-hostable AI support desk. The Go application lives in cmd/ and internal/.",
   "scripts": {
     "docs:check": "node scripts/docs-check.mjs",
-    "ui:screenshots": "node scripts/ui-screenshots.mjs",
+    "ui:screenshots": "node scripts/ui-console-screenshots.mjs",
     "compose:smoke": "node scripts/compose-smoke.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
@@ -19,7 +19,16 @@
     "dev:web": "pnpm --filter @chastedesk/web dev",
     "dev:worker": "pnpm --filter @chastedesk/worker dev",
     "db:generate": "pnpm --filter @chastedesk/db generate",
-    "db:migrate": "pnpm --filter @chastedesk/db migrate"
+    "db:migrate": "pnpm --filter @chastedesk/db migrate",
+    "ui:dev": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build",
+    "ui:typecheck": "npm --prefix ui run typecheck",
+    "ui:check": "node scripts/ui-console-check.mjs",
+    "ui:responsive": "node scripts/ui-responsive-check.mjs",
+    "ui:a11y": "node scripts/ui-a11y-check.mjs",
+    "ui:assets": "node scripts/verify-ui-assets.mjs",
+    "ui:verify-build": "node scripts/verify-ui-build.mjs",
+    "ui:onboarding": "node scripts/ui-onboarding-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

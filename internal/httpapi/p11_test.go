@@ -304,7 +304,7 @@ func TestAnalyticsUIGate(t *testing.T) {
 	jar, orgID := app.bootstrapAndSignIn(t, "Metrics Org", "owner@metrics.test")
 	ctx := context.Background()
 
-	page := pageBody(t, app.request("GET", "/dashboard/analytics", nil, jar, ""))
+	page := pageBody(t, app.request("GET", "/legacy/dashboard/analytics", nil, jar, ""))
 	if !strings.Contains(page, "No analytics yet") {
 		t.Fatalf("analytics page must render an empty state first")
 	}
@@ -319,7 +319,7 @@ func TestAnalyticsUIGate(t *testing.T) {
 		t.Fatalf("seed analytics row: %v", err)
 	}
 
-	page = pageBody(t, app.request("GET", "/dashboard/analytics", nil, jar, ""))
+	page = pageBody(t, app.request("GET", "/legacy/dashboard/analytics", nil, jar, ""))
 	for _, expected := range []string{
 		"Total conversations", "AI resolution rate", "Escalation rate",
 		"Median first response", "Median resolution", ">7<", "60%", "20%", "30s", "900s",
@@ -406,7 +406,7 @@ func TestAnalyticsRollupJobGate(t *testing.T) {
 		t.Fatalf("rollup job never stored today's metrics")
 	}
 
-	page := pageBody(t, app.request("GET", "/dashboard/analytics", nil, jar, ""))
+	page := pageBody(t, app.request("GET", "/legacy/dashboard/analytics", nil, jar, ""))
 	if !strings.Contains(page, "Total conversations") {
 		t.Fatalf("analytics page must show cards after rollup")
 	}

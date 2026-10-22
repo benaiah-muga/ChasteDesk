@@ -243,6 +243,10 @@ func (s *Server) handleWidgetMessageCreate(w http.ResponseWriter, r *http.Reques
 		s.respondError(w, r, err)
 		return
 	}
+	if _, err := s.pool.Exec(ctx, `update conversations set snoozed_until = null, updated_at = now() where id = $1 and org_id = $2`, conversationID, auth.OrgID); err != nil {
+		s.respondError(w, r, err)
+		return
+	}
 	if _, err := s.queue.Send(ctx, "ai-respond", map[string]any{
 		"orgId": auth.OrgID, "conversationId": conversationID,
 	}, queue.SendOptions{SingletonKey: "conv:" + conversationID, RetryLimit: 1, RetryDelaySeconds: 5}); err != nil {

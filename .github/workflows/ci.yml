@@ -43,3 +43,24 @@ jobs:
           node-version: 22
       - name: Documentation checks
         run: node scripts/docs-check.mjs
+
+  console:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install console dependencies
+        run: npm ci --prefix ui
+      - name: Typecheck console
+        run: npm --prefix ui run typecheck
+      - name: Build console
+        run: npm --prefix ui run build
+      - name: Check committed console build
+        run: git diff --exit-code -- internal/web/static/console
+      - name: Check local assets
+        run: node scripts/verify-ui-assets.mjs

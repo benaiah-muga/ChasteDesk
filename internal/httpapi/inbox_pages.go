@@ -20,17 +20,27 @@ func statusLabel(status string) string {
 }
 
 type inboxListRow struct {
-	ID              string
-	Status          string
-	Channel         string
-	CreatedAt       time.Time
-	FirstResponseAt *time.Time
-	Handoff         []byte
-	CustomerName    *string
-	CustomerEmail   *string
-	UpdatedAt       time.Time
-	LastMessage     string
-	AssignedName    string
+	TicketNumber       int64
+	Priority           string
+	Tags               []string
+	SnoozedUntil       *time.Time
+	FirstResponseDueAt *time.Time
+	ResolutionDueAt    *time.Time
+	ID                 string
+	CustomerID         string
+	Status             string
+	Channel            string
+	CreatedAt          time.Time
+	FirstResponseAt    *time.Time
+	Handoff            []byte
+	CustomerName       *string
+	CustomerEmail      *string
+	UpdatedAt          time.Time
+	LastMessage        string
+	LastMessageRole    string
+	AssignedName       string
+	AssignedUserID     *string
+	PendingActions     int
 }
 
 func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([]inboxListRow, error) {
@@ -39,9 +49,11 @@ func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([
 	switch status {
 	case "", "all":
 	case "open":
-		filter += " and c.status not in ('resolved','closed')"
+		filter += " and c.status not in ('resolved','closed') and (c.snoozed_until is null or c.snoozed_until <= now())"
 	case "resolved":
 		filter += " and c.status in ('resolved','closed')"
+	case "snoozed":
+		filter += " and c.snoozed_until > now()"
 	case "ai_active", "awaiting_human", "human_active", "closed":
 		args = append(args, status)
 		filter += fmt.Sprintf(" and c.status = $%d", len(args))
@@ -51,17 +63,21 @@ func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([
 	if q != "" {
 		args = append(args, q)
 		filter += fmt.Sprintf(` and (cu.name ilike '%%' || $%d || '%%' or cu.email ilike '%%' || $%d || '%%'
+			or c.ticket_number::text = $%d
+			or exists (select 1 from unnest(c.tags) tag where tag ilike '%%' || $%d || '%%')
 			or exists (select 1 from messages mq where mq.conversation_id = c.id and mq.content ilike '%%' || $%d || '%%'))`,
-			len(args), len(args), len(args))
+			len(args), len(args), len(args), len(args), len(args))
 	}
 	rows, err := s.pool.Query(ctx,
-		`select c.id, c.status::text, c.channel::text, c.created_at, c.first_response_at, c.handoff, c.updated_at,
-		        cu.name, cu.email, coalesce(lm.content, ''), coalesce(au.name, '')
+		`select c.ticket_number, c.priority, c.tags, c.snoozed_until, c.first_response_due_at, c.resolution_due_at,
+		        c.id, c.customer_id::text, c.status::text, c.channel::text, c.created_at, c.first_response_at, c.handoff, c.updated_at,
+		        cu.name, cu.email, coalesce(lm.content, ''), coalesce(lm.role::text, ''), coalesce(au.name, ''), au.id,
+		        (select count(*)::int from actions a where a.conversation_id = c.id and a.status = 'pending_approval')
 		   from conversations c
 		   join customers cu on cu.id = c.customer_id
 		   left join "user" au on au.id = c.assigned_user_id
 		   left join lateral (
-		     select content from messages m where m.conversation_id = c.id order by m.created_at desc limit 1
+		     select content, role from messages m where m.conversation_id = c.id order by m.created_at desc limit 1
 		   ) lm on true
 		  where c.org_id = $1`+filter+`
 		  order by c.updated_at desc limit 100`, args...)
@@ -72,7 +88,7 @@ func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([
 	out := []inboxListRow{}
 	for rows.Next() {
 		var row inboxListRow
-		if err := rows.Scan(&row.ID, &row.Status, &row.Channel, &row.CreatedAt, &row.FirstResponseAt, &row.Handoff, &row.UpdatedAt, &row.CustomerName, &row.CustomerEmail, &row.LastMessage, &row.AssignedName); err != nil {
+		if err := rows.Scan(&row.TicketNumber, &row.Priority, &row.Tags, &row.SnoozedUntil, &row.FirstResponseDueAt, &row.ResolutionDueAt, &row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.CreatedAt, &row.FirstResponseAt, &row.Handoff, &row.UpdatedAt, &row.CustomerName, &row.CustomerEmail, &row.LastMessage, &row.LastMessageRole, &row.AssignedName, &row.AssignedUserID, &row.PendingActions); err != nil {
 			return nil, err
 		}
 		out = append(out, row)

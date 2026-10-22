@@ -124,7 +124,7 @@ func (s *Server) settingsView(r *http.Request, sess *auth.Session, section, crea
 	}
 	for _, member := range members {
 		view.Members = append(view.Members, views.MemberView{
-			Name: member.Name, Email: member.Email, Role: member.Role,
+			ID: member.UserID, Name: member.Name, Email: member.Email, Role: member.Role,
 			Joined: member.JoinedAt.Format("Jan 2006"), Self: member.UserID == sess.UserID,
 		})
 	}

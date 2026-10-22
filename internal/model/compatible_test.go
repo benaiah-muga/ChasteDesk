@@ -54,3 +54,36 @@ func TestCompatibleProviders(t *testing.T) {
 		t.Fatalf("mock server did not see both provider requests: %d", recorded)
 	}
 }
+
+func TestCompatibleProviderSanitizesToolNames(t *testing.T) {
+	mock := testutil.StartMockOpenAI(t)
+	mock.SetScript(testutil.MockOpenAIStep{
+		Text: "Looking that up.", InputTokens: 4, OutputTokens: 6, Finish: "tool_calls",
+		ToolCalls: []testutil.MockOpenAIToolCall{{ID: "call_1", Name: "knowledge_search", Args: map[string]any{"query": "refund"}}},
+	})
+	provider := model.For(model.ProviderOpenAICompatible)
+	result, err := provider.Chat(context.Background(), model.Config{APIKey: "test-key", BaseURL: mock.URL}, model.ChatRequest{
+		ModelID:         "deepseek-flash",
+		Messages:        []model.Message{{Role: "user", Content: "What is the refund policy?"}},
+		Tools:           []model.ToolDeclaration{{ID: "knowledge.search", Description: "Search the knowledge base.", Parameters: map[string]any{"type": "object"}}},
+		MaxOutputTokens: 100,
+	})
+	if err != nil {
+		t.Fatalf("chat failed: %v", err)
+	}
+	if len(result.ToolCalls) != 1 || result.ToolCalls[0].ToolID != "knowledge.search" {
+		t.Fatalf("tool call name was not mapped back: %+v", result.ToolCalls)
+	}
+	requests := mock.Requests()
+	if len(requests) != 1 {
+		t.Fatalf("expected one request, got %d", len(requests))
+	}
+	tools, ok := requests[0].Body["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("tools missing from request: %+v", requests[0].Body)
+	}
+	function, _ := tools[0].(map[string]any)["function"].(map[string]any)
+	if function["name"] != "knowledge_search" {
+		t.Fatalf("wire tool name was not sanitized: %+v", function)
+	}
+}

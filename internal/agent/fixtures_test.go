@@ -119,10 +119,12 @@ type mockStep struct {
 }
 
 type mockProvider struct {
-	script []mockStep
+	script   []mockStep
+	requests []model.ChatRequest
 }
 
-func (m *mockProvider) chat(_ model.ChatRequest) (model.ChatResult, error) {
+func (m *mockProvider) chat(req model.ChatRequest) (model.ChatResult, error) {
+	m.requests = append(m.requests, req)
 	step := m.script[0]
 	if len(m.script) > 1 {
 		step = m.script[0]

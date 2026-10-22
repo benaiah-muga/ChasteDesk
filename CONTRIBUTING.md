@@ -15,12 +15,19 @@ go build ./...
 go test ./...
 go vet ./...
 gofmt -l .
+npm --prefix ui run typecheck
 ```
 
-After editing a templ file:
+After editing a legacy templ file:
 
 ```bash
 go tool templ generate
+```
+
+After editing the React console:
+
+```bash
+npm --prefix ui run build
 ```
 
 If your change affects a page, include a screenshot or a short note about what changed visually.
@@ -51,7 +58,10 @@ team can grow without an email service. Acceptance is transactional.
 - [ ] `go test ./...` passes
 - [ ] `go vet ./...` passes
 - [ ] `gofmt -l .` prints nothing
-- [ ] `go tool templ generate` was run after template edits
+- [ ] `go tool templ generate` was run after legacy template edits
+- [ ] `npm --prefix ui run typecheck` passes
+- [ ] `npm --prefix ui run build` was run after console edits
+- [ ] Browser checks passed for the changed flow
 - [ ] New API or job input is validated
 - [ ] New database access is organization-scoped
 - [ ] Security-relevant actions write audit rows

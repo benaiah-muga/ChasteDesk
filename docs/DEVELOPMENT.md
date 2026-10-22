@@ -4,7 +4,7 @@
 
 - Go 1.27 or newer
 - Docker for integration tests and Compose checks
-- Node.js 22+ and pnpm only for the screenshot and documentation scripts. The application does not use Node.
+- Node.js 22+ for the React console and browser verification scripts. The shipped Go binary does not need Node.
 - Postgres 16 with pgvector for manual runs
 
 ## Local setup
@@ -26,15 +26,60 @@ go run ./cmd/worker
 
 The web process applies migrations on boot. Open `http://localhost:3000/setup` for a fresh database.
 
+## Console workflow
+
+The primary UI lives in `ui/` and builds to `internal/web/static/console`:
+
+```bash
+npm --prefix ui install
+npm --prefix ui run typecheck
+npm --prefix ui run build
+go build ./...
+go run ./cmd/web
+```
+
+`npm --prefix ui run dev` serves the console on port 5174 and proxies API and static asset requests to a Go server on port 3100. The production assets are committed, so a fresh checkout can build the Go binary without running Node.
+
+OpenAI-compatible providers include DeepSeek, Ollama, and custom gateways. Tool names are sanitized to the provider wire format and mapped back to internal IDs, and native assistant tool-call messages are replayed in follow-up turns. Use `deepseek-flash` or `deepseek-v4-pro` with a base URL of `https://api.deepseek.com/v1` when testing DeepSeek.
+
+Hybrid retrieval is enabled by setting `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, and optionally `EMBEDDING_BASE_URL` and `EMBEDDING_API_KEY` for the worker. Local Ollama example:
+
+```bash
+EMBEDDING_PROVIDER=ollama
+EMBEDDING_MODEL=embeddinggemma-2:270m-bf16-text
+EMBEDDING_BASE_URL=http://localhost:11434
+```
+
+The installed Ollama must support the chosen model. Reindex each source after enabling embeddings so chunks receive vectors. The knowledge console reports `Vector search` when at least one chunk is embedded. The agent falls back to full-text retrieval if the embedding endpoint is unavailable.
+
+The console is organized as:
+
+| Path | Purpose |
+| --- | --- |
+| `ui/src/pages` | Route-level screens |
+| `ui/src/features` | Feature components when a screen grows |
+| `ui/src/components/ui` | shadcn-style primitives built on Radix |
+| `ui/src/components` | App shell, command palette, charts, shared states |
+| `ui/src/lib` | Typed API client, formatting, and API types |
+| `internal/httpapi/console_*.go` | JSON endpoints and the embedded SPA shell |
+| `ui/src/pages/quick-replies-page.tsx` | Shared quick reply library |
+| `internal/db/migrations/0003_ticket_ops.sql` | Ticket numbers, priority, tags, snooze, and canned replies |
+| `internal/web/static/console` | Committed production build |
+
 ## Commands
 
 ```bash
 go build ./...
 go test -p 1 ./...
-go test ./internal/httpapi -run TestProductSurfaces -v
+go test ./internal/httpapi -run TestConsole -v
+node scripts/ui-console-check.mjs
+node scripts/ui-a11y-check.mjs
+node scripts/ui-responsive-check.mjs
 go vet ./...
 gofmt -l .
-go tool templ generate
+npm --prefix ui run typecheck
+npm --prefix ui run build
+go tool templ generate   # legacy templates only
 ```
 
 `go test -p 1 ./...` starts ephemeral pgvector containers for integration tests. If Docker is missing, those tests skip with a message. The full suite takes several minutes because it exercises real Postgres and model adapters.
@@ -47,9 +92,9 @@ CHASTEDESK_TEST_DATABASE_URL=postgresql://chastedesk:chastedesk@localhost:5432/c
 
 The configured role must be allowed to create and drop databases.
 
-## Templ workflow
+## Legacy template workflow
 
-Pages and components live in `internal/web/views/*.templ`. Generated `*_templ.go` files are committed. After editing a template:
+The old pages at `/legacy/...` live in `internal/web/views/*.templ`. They are frozen compatibility surfaces. New product work belongs in the React console. After editing a legacy template:
 
 ```bash
 go tool templ generate
@@ -79,27 +124,28 @@ Do not write `selected={ condition }` or `checked={ condition }`. HTML treats th
 
 | Path | Purpose |
 | --- | --- |
+| `internal/web/static/console/` | Committed React console build and route chunks |
 | `internal/web/static/css/tokens.css` | Design tokens and font faces |
-| `internal/web/static/css/app.css` | Layout, components, responsive rules |
-| `internal/web/static/js/app.js` | Navigation, command palette, copy, composer, SSE refresh |
+| `internal/web/static/css/app.css` | Legacy page layout and components |
+| `internal/web/static/js/app.js` | Legacy navigation, copy, composer, SSE refresh |
 | `internal/web/static/js/theme.js` | Applies the stored theme before paint |
-| `internal/web/static/htmx.min.js` | Vendored HTMX 2.0.7 |
+| `internal/web/static/htmx.min.js` | Vendored HTMX 2.0.7 for legacy pages |
 | `internal/web/static/fonts/` | Self-hosted Instrument Sans, Instrument Serif, JetBrains Mono |
 | `internal/widget/widget.js` | Embeddable widget bundle |
 
-Static files are embedded at compile time. Restart the web process after changing assets. Do not add third-party scripts to the dashboard.
+Static files are embedded at compile time. Restart the web process after changing the built console, CSS, JavaScript, or fonts. Do not add third-party scripts to the console.
 
 The widget uses a closed Shadow DOM and inline CSS, so its styles do not depend on the host page. Test it from a different origin; same-origin testing hides CORS and Origin bugs.
 
-## Adding a page
+## Adding a console page
 
-1. Add a view model and template in `internal/web/views`.
-2. Wrap authenticated pages in `appShell(shell)` through the exported page component.
-3. Add a handler in `internal/httpapi` that calls `shellFor` and renders the page.
-4. Register the route in `internal/httpapi/server.go`.
-5. Add the page to the sidebar and command palette in `internal/web/views/layout.templ`.
-6. Add an integration assertion to `internal/httpapi/product_test.go`.
-7. Capture or update a screenshot if the page is user-facing.
+1. Add the typed response in `ui/src/lib/types.ts` and the client call in `ui/src/lib/api.ts`.
+2. Add the JSON handler in `internal/httpapi/console_handlers.go` or a focused `console_*.go` file.
+3. Register the endpoint and any SPA route needs in `internal/httpapi/server.go`.
+4. Build the page in `ui/src/pages`, then add its route in `ui/src/app.tsx`.
+5. Add it to the sidebar and command palette in `ui/src/components/sidebar.tsx` and `ui/src/components/command-palette.tsx`.
+6. Cover the API contract in `internal/httpapi/console_test.go` or the relevant package test.
+7. Run the browser checks and capture the page with `node scripts/ui-console-screenshots.mjs`.
 
 ## Database changes
 
@@ -136,25 +182,34 @@ Add a new numbered migration in `internal/db/migrations`. Never edit an applied 
 
 Tests use real Postgres containers and real HTTP servers. Prefer a full request through `httptest` over mocking the repository.
 
-## Screenshots and docs checks
+## Screenshots, browser checks, and docs checks
 
 ```bash
-node scripts/ui-screenshots.mjs
+node scripts/ui-console-check.mjs
+node scripts/ui-responsive-check.mjs
+node scripts/ui-a11y-check.mjs
+node scripts/ui-console-screenshots.mjs
 node scripts/docs-check.mjs
 node scripts/tags-check.mjs
 node scripts/compose-smoke.mjs
 ```
 
-`ui-screenshots.mjs` expects a running demo instance:
+The console scripts expect a running demo instance with a completed onboarding flow:
 
 ```bash
 CHASTEDESK_URL=http://127.0.0.1:3000 \
 CHASTEDESK_EMAIL=owner@example.com \
 CHASTEDESK_PASSWORD=your-password \
-node scripts/ui-screenshots.mjs
+node scripts/ui-console-check.mjs
 ```
 
-It writes desktop and responsive screenshots to `docs/assets` and fails on horizontal overflow.
+`ui-console-screenshots.mjs` writes desktop and mobile screenshots to `docs/assets`. The responsive check covers 320, 375, 414, 768, 1024, and 1440 px and fails on horizontal overflow or missing navigation. The accessibility check runs axe WCAG A and AA rules on the primary screens.
+
+For a fresh onboarding walkthrough, point a throwaway database at the Go server and run:
+
+```bash
+CHASTEDESK_FRESH_URL=http://127.0.0.1:3001 node scripts/ui-onboarding-check.mjs
+```
 
 ## Style rules
 

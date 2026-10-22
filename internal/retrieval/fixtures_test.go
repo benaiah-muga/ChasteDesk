@@ -129,7 +129,7 @@ func insertChunk(t *testing.T, pool *pgxpool.Pool, orgID, sourceID, content stri
 	}
 	var literal *string
 	if embeddingModel != nil {
-		encoded := vectorLiteral(vec)
+		encoded := VectorLiteral(vec)
 		literal = &encoded
 	}
 	if _, err := pool.Exec(ctx, `insert into knowledge_chunks (id, org_id, source_id, version, chunk_index, content, locator, token_count, embedding_model, embedding)

@@ -220,7 +220,7 @@ func (e *Engine) ftsSearch(ctx context.Context, orgID, text string, scopes []str
 	return out, rows.Err()
 }
 
-func vectorLiteral(vec []float64) string {
+func VectorLiteral(vec []float64) string {
 	parts := make([]string, len(vec))
 	for i, v := range vec {
 		parts[i] = strconv.FormatFloat(v, 'f', -1, 64)
@@ -236,7 +236,7 @@ func (e *Engine) vectorSearch(ctx context.Context, orgID string, embedding []flo
 		where c.org_id = $1 and s.scope = any($3)
 			and c.embedding_model = $4 and c.embedding is not null
 		order by c.embedding <=> $2::vector
-		limit $5`, orgID, vectorLiteral(embedding), scopes, model, limit)
+		limit $5`, orgID, VectorLiteral(embedding), scopes, model, limit)
 	if err != nil {
 		return nil, err
 	}

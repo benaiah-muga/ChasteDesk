@@ -2,13 +2,21 @@
 
 Locked design system. Future UI work reads this file first and defers to it. Amend it intentionally; the file is the rule.
 
+## Implementation
+
+- The primary operator console is React 19 in `ui/`, built with Vite and Tailwind CSS v4. Components follow the shadcn pattern: Radix primitives, `class-variance-authority`, and local source files in `ui/src/components/ui`.
+- The built console is committed under `internal/web/static/console` and served by Go at `/dashboard` and the public auth routes. It is not a separate deployment.
+- Legacy Go templates remain at `/legacy/...` for compatibility. New interface work goes into the console and translates the tokens below rather than introducing a second palette.
+
 ## System
 
+- Brand mark: the supplied orange speech-bubble C with the headset and colored signal marks. Use `/static/favicon-192.png` for the in-app mark and `/static/favicon-32.png` for the browser tab. The supplied banner lives at `docs/assets/chastedesk-banner.png` and is the repository hero.
+
 - Genre: modern-minimal with an editorial-utilitarian voice
-- Macrostructure: Workbench for product pages, Split Studio for auth and invitation pages
+- Macrostructure: Workbench for product pages, a single-panel sign-in, Split Studio for setup and invitation pages
 - Theme: custom, "Warm Ledger"
 - Axes: warm paper band / Instrument Sans body with Instrument Serif display / persimmon signal accent
-- Mood: a calm, precise support desk. Warm paper, dark spruce navigation, one persimmon accent. Not playful, not sterile.
+- Mood: a calm, precise support desk. Warm paper, deep umber navigation, one persimmon accent. Not playful, not sterile.
 
 ## Tokens
 
@@ -23,7 +31,7 @@ Canonical values live in `internal/web/static/css/tokens.css`. Do not inline raw
   --color-rule:       oklch(89% 0.011 78);
   --color-accent:     oklch(61% 0.17 42);
   --color-focus:      oklch(58% 0.19 40);
-  --color-sidebar:    oklch(21% 0.018 158);
+  --color-sidebar:    oklch(23% 0.036 53);
 
   --font-display: "Instrument Serif", ui-serif, Georgia, serif;
   --font-body:    "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
@@ -58,6 +66,9 @@ The dark theme keeps the same hue anchors and moves lightness only. Both `[data-
 - Ghost: transparent, used for skip, cancel, and tertiary navigation.
 - Danger: transparent with a red rule and red text. Never a solid red button.
 - Accent fill is reserved for the launcher, active navigation marker, and status dots. It never covers large surfaces.
+- Tags and status chips use a hairline border and a colored dot. They do not use soft orange fills.
+- Avatar fallbacks use deterministic deep, muted tones from the avatar token set. They never use accent-soft.
+- Message cards use paper, surface, or a cool internal-note tint. The brand umber appears as a thin edge, not as a large fill.
 
 ## Motion
 
@@ -69,11 +80,13 @@ The dark theme keeps the same hue anchors and moves lightness only. Both `[data-
 ## Layout
 
 - 12-column content grid with full-width tables and lists where density matters.
-- Sidebar is a fixed 16.75rem spruce rail on desktop, an off-canvas sheet below 60rem.
-- Content max width is 92rem with fluid gutters.
+- The console uses a 15.5rem umber rail on desktop and a 4.25rem icon rail when collapsed. Below 64rem the rail becomes an off-canvas sheet. The sign-in page is a single warm-paper column with the form centered; the umber rail belongs to the console. The marketing split is gone.
+- The topbar is 3.5rem and includes a live local clock. Content max width is 95rem with fluid gutters. Inbox and thread views are full-bleed.
 - Cards use one hairline border and a whisper shadow. No nested cards.
-- Forms use 44px controls, labels above inputs, reserved helper height, and no border-width changes on focus.
+- Forms use 36 to 40px controls, labels above inputs, reserved helper height, and no border-width changes on focus.
 - Every clickable label is single-line. Rows wrap, labels do not.
+- Primary workflows expose a keyboard path: command palette, inbox triage, composer, dialogs, and settings save bars.
+- Empty, loading, error, and permission states use the same typography, spacing, and action hierarchy as filled states.
 
 ## Icons
 
@@ -86,6 +99,8 @@ One inline stroke set at 1.75 weight, 24px viewBox, rendered at 1rem by default.
 ## Notes
 
 - No gradients, glassmorphism, aurora blobs, or decorative 3D.
+- Console layout uses progressive disclosure rather than nested cards. Drawers and popovers carry secondary detail.
+- The console never ships a third-party script or remote asset. Lazy-loaded route chunks are built from local source.
 - No invented metrics in the UI. Every number comes from the database.
 - No third-party fonts or scripts. Everything is self-hosted.
 - No em dashes in interface copy, documentation, or code comments.

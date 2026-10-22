@@ -16,9 +16,15 @@ import (
 	"chastedesk/internal/retrieval"
 )
 
+type Embedder interface {
+	Model() string
+	Embed(ctx context.Context, texts []string) ([][]float64, error)
+}
+
 type Deps struct {
 	Pool       *pgxpool.Pool
 	UploadsDir string
+	Embedder   Embedder
 }
 
 func (d Deps) IndexDocument(ctx context.Context, orgID, sourceID string, doc retrieval.ParsedDocument) (int, error) {
@@ -37,28 +43,53 @@ func (d Deps) IndexDocument(ctx context.Context, orgID, sourceID string, doc ret
 	}
 	newVersion := currentVersion + 1
 	chunks := retrieval.ChunkDocument(doc, sourceID, newVersion)
+	var (
+		vectors        [][]float64
+		embeddingModel any
+	)
+	if d.Embedder != nil {
+		texts := make([]string, 0, len(chunks))
+		for _, chunk := range chunks {
+			texts = append(texts, chunk.Content)
+		}
+		vectors, err = d.Embedder.Embed(ctx, texts)
+		if err != nil {
+			return 0, err
+		}
+		if len(vectors) != len(chunks) {
+			return 0, fmt.Errorf("embedding returned %d vectors for %d chunks", len(vectors), len(chunks))
+		}
+		embeddingModel = d.Embedder.Model()
+	}
 	if _, err := tx.Exec(ctx, `delete from knowledge_chunks where source_id = $1 and org_id = $2`, sourceID, orgID); err != nil {
 		return 0, err
 	}
-	for _, chunk := range chunks {
+	for index, chunk := range chunks {
 		locator, err := json.Marshal(chunk.Locator)
 		if err != nil {
 			return 0, err
 		}
-		if _, err := tx.Exec(ctx, `insert into knowledge_chunks (id, org_id, source_id, version, chunk_index, content, locator, token_count)
+		if d.Embedder != nil {
+			if _, err := tx.Exec(ctx, `insert into knowledge_chunks (id, org_id, source_id, version, chunk_index, content, locator, token_count, embedding_model, embedding)
+				values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10::vector)`,
+				chunk.ID, orgID, sourceID, newVersion, chunk.ChunkIndex, chunk.Content, string(locator), chunk.TokenCount,
+				d.Embedder.Model(), retrieval.VectorLiteral(vectors[index])); err != nil {
+				return 0, err
+			}
+		} else if _, err := tx.Exec(ctx, `insert into knowledge_chunks (id, org_id, source_id, version, chunk_index, content, locator, token_count)
 			values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
 			chunk.ID, orgID, sourceID, newVersion, chunk.ChunkIndex, chunk.Content, string(locator), chunk.TokenCount); err != nil {
 			return 0, err
 		}
 	}
-	if _, err := tx.Exec(ctx, `update knowledge_sources set version = $2, status = 'ready', error = null, updated_at = now() where id = $1 and org_id = $3`,
-		sourceID, newVersion, orgID); err != nil {
+	if _, err := tx.Exec(ctx, `update knowledge_sources set version = $2, status = 'ready', error = null, embedding_model = $4, updated_at = now() where id = $1 and org_id = $3`,
+		sourceID, newVersion, orgID, embeddingModel); err != nil {
 		return 0, err
 	}
 	if err := db.WriteAuditQuery(ctx, tx, orgID, db.AuditInput{
 		ActorType: db.ActorSystem, Type: "knowledge.ingest.completed",
 		TargetType: "knowledge_source", TargetID: &sourceID,
-		Payload: map[string]any{"version": newVersion, "chunks": len(chunks)},
+		Payload: map[string]any{"version": newVersion, "chunks": len(chunks), "embeddings": d.Embedder != nil},
 	}); err != nil {
 		return 0, err
 	}

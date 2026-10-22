@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# ChasteDesk web: Go HTTP server, HTMX dashboard, widget, and API.
+# ChasteDesk web: Go HTTP server, React console, legacy pages, widget, and API.
 FROM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./

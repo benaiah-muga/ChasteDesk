@@ -68,7 +68,7 @@ The product does not defend against a host-level compromise, a malicious operato
 - Unsafe methods require a same-origin `Origin` when one is present and reject `Sec-Fetch-Site: cross-site` for cookie-authenticated routes.
 - Widget routes are exempt from the cookie origin check because they authenticate with a token and their own origin allowlist.
 - The widget runs in a Shadow DOM so host page CSS cannot read or restyle its internals. User content is inserted with `textContent`.
-- The dashboard has no third-party scripts, analytics, or fonts.
+- The console has no third-party scripts, analytics, or remote fonts. Route chunks are built from local source and embedded in the binary.
 
 ### Data protection
 
@@ -99,7 +99,7 @@ The product does not defend against a host-level compromise, a malicious operato
 - No per-tenant encryption keys. Every installation uses one `APP_SECRET`.
 - No antivirus scanning for uploads. Parseable formats only.
 - No ANN vector index. This is a performance constraint, not a confidentiality one.
-- The dashboard JSON API is stable enough for the UI but not yet versioned.
+- The console JSON API is stable enough for the UI but not yet versioned.
 
 ## Hardening checklist
 

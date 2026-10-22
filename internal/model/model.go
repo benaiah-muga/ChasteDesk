@@ -58,6 +58,7 @@ type Message struct {
 	Content    string
 	ToolCallID string
 	ToolName   string
+	Reasoning  string
 }
 
 type ToolDeclaration struct {
@@ -96,6 +97,7 @@ const (
 
 type ChatResult struct {
 	Text         *string
+	Reasoning    *string
 	ToolCalls    []ToolCall
 	Usage        Usage
 	FinishReason FinishReason

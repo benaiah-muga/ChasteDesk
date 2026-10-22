@@ -31,7 +31,7 @@ func startP9App(t *testing.T) *workerTestApp {
 	t.Helper()
 	app := startWorkerTestApp(t, t.TempDir())
 	engine := retrieval.NewEngine(app.pool)
-	app.jobs.Work(app.ctx, "ai-respond", 2, agent.RespondHandler(app.pool, testAppSecret, engine))
+	app.jobs.Work(app.ctx, "ai-respond", 2, agent.RespondHandler(app.pool, testAppSecret, engine, nil))
 	app.jobs.Work(app.ctx, "execute-action", 2, agent.ExecuteActionHandler(app.pool, engine))
 	return app
 }

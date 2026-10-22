@@ -1,12 +1,12 @@
 # Architecture
 
-ChasteDesk is a single Go module with three binaries and one stateful dependency: Postgres 16 with pgvector. The design favors explicit boundaries, server-rendered pages, and plain SQL over framework magic.
+ChasteDesk is a single Go module with three binaries and one stateful dependency: Postgres 16 with pgvector. The design favors explicit boundaries, a Go-owned HTTP surface, a React operator console, and plain SQL over framework magic.
 
 ## Processes
 
 | Binary | Responsibility |
 | --- | --- |
-| `cmd/web` | HTTP API, dashboard, widget endpoints, SSE streams, session auth, migrations on boot |
+| `cmd/web` | HTTP API, React console, legacy pages, widget endpoints, SSE streams, session auth, migrations on boot |
 | `cmd/worker` | URL and file ingestion, embedding, AI response jobs, action execution, analytics rollups |
 | `cmd/migrate` | One-shot migration runner used by Compose |
 
@@ -33,7 +33,17 @@ sequenceDiagram
   H-->>W: SSE message.created
 ```
 
-The dashboard uses the same path for human replies and approvals. Approvals are a database row plus a queued `execute-action` job.
+The console uses the same path for human replies and approvals. Approvals are a database row plus a queued `execute-action` job.
+
+## Operator console
+
+The signed-in product is a React 19 single-page application built from `ui/` with Vite, Tailwind CSS v4, and shadcn-style Radix primitives. The build is committed under `internal/web/static/console` and embedded with the other static assets.
+
+- Go serves the embedded shell for `/login`, `/setup`, `/onboarding`, `/invite/{id}`, `/dashboard`, and every `/dashboard/...` route. Unknown routes render the client-side not-found view.
+- The console reads and writes through `/api/app/*` plus the existing JSON endpoints. Session auth, origin checks, RBAC capabilities, auditing, and organization scoping are unchanged.
+- Route chunks are lazy-loaded from local assets. No third-party script, font, or remote asset is loaded at runtime.
+- The old templ and HTMX pages remain reachable under `/legacy/...` for compatibility tests and migration fallback. New product work belongs in `ui/`.
+- The API keeps the `{ data }` and `{ error }` envelopes. Browser-facing console endpoints are intentionally separate from the stable REST channel.
 
 ## Data model
 
@@ -46,10 +56,13 @@ Core tables:
 | `organization`, `member`, `user`, `account`, `session` | Single-organization auth and membership |
 | `invitation` | One-time invite links with role and expiry |
 | `customers` | Customer profile and attributes, unique by lowercased email per organization |
-| `conversations` | Channel, status, triage, handoff package, response and resolution timestamps |
+| `conversations` | Channel, status, human ticket number, priority, tags, snooze, SLA due dates, triage, handoff package, response and resolution timestamps |
 | `messages` | Customer, AI, human, internal note, or system messages with optional citations |
 | `knowledge_sources` | URL, file, or pasted text sources with scope, status, version, and error |
 | `knowledge_chunks` | Chunk content, locator, token count, embedding, generated `tsv` |
+| `canned_replies` | Organization-scoped reusable reply titles and bodies |
+| `sla_policies` | Per-organization first-response and resolution targets by priority |
+| `sla_breaches` | Recorded SLA breaches with due, detection, and notification timestamps |
 | `agents` | Active support agent and its JSON policy |
 | `provider_configs` | Encrypted provider credentials, base URL, model cache |
 | `api_keys` | Hashed REST keys with prefix and last-used timestamp |
@@ -139,7 +152,7 @@ Widget streams emit `message`, `action.pending`, `ready`, and `ping` frames. Das
 - `internal/web/static/css/app.css` holds layout, components, and responsive rules.
 - `internal/web/static/js/app.js` handles the mobile navigation, command palette, copy buttons, composer modes, and SSE-triggered HTMX refreshes.
 - `internal/web/static/htmx.min.js` is vendored.
-- Fonts are self-hosted. No third-party scripts run in the dashboard.
+- Fonts are self-hosted. No third-party scripts run in the console or legacy pages.
 - The widget is a single IIFE with a closed Shadow DOM, so host page CSS does not leak in.
 
 See [design.md](../design.md) for the design system and [DEVELOPMENT.md](DEVELOPMENT.md) for the implementation workflow.

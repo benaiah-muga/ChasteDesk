@@ -137,7 +137,7 @@ func TestInboxContextGate(t *testing.T) {
 		t.Fatalf("API list must return 3 conversations, got %d", len(items))
 	}
 
-	listPage := pageBody(t, app.request("GET", "/dashboard/inbox", nil, jar, ""))
+	listPage := pageBody(t, app.request("GET", "/legacy/dashboard/inbox", nil, jar, ""))
 	if !strings.Contains(listPage, "awaiting human") {
 		t.Fatalf("list must show awaiting human status")
 	}
@@ -145,7 +145,7 @@ func TestInboxContextGate(t *testing.T) {
 		t.Fatalf("list must show customer name")
 	}
 
-	detail := pageBody(t, app.request("GET", "/dashboard/inbox/"+seeded["awaiting_human"], nil, jar, ""))
+	detail := pageBody(t, app.request("GET", "/legacy/dashboard/inbox/"+seeded["awaiting_human"], nil, jar, ""))
 	for _, expected := range []string{
 		"Why the AI escalated", "Walk the customer through the reset flow.",
 		"Nina Nina", "nina@inbox.test", "gold", "password trouble", "1 other open conversation",
@@ -250,7 +250,7 @@ func TestInboxReplyGate(t *testing.T) {
 		t.Fatalf("conversation not resolved (status=%s resolved_at=%v)", status, resolvedAt)
 	}
 
-	detail := pageBody(t, app.request("GET", "/dashboard/inbox/"+conversationID, nil, jar, ""))
+	detail := pageBody(t, app.request("GET", "/legacy/dashboard/inbox/"+conversationID, nil, jar, ""))
 	if !strings.Contains(detail, "Approve refund manually.") {
 		t.Fatalf("handoff recommended step not rendered")
 	}
@@ -276,7 +276,7 @@ func TestInboxApprovalsGate(t *testing.T) {
 	toApprove := seedPendingActionForConversation(t, app, orgID, conversationID, runID, agentID, "approval-ui-note")
 	toReject := seedPendingActionForConversation(t, app, orgID, conversationID, runID, agentID, "approval-ui-reject")
 
-	detail := pageBody(t, app.request("GET", "/dashboard/inbox/"+conversationID, nil, jar, ""))
+	detail := pageBody(t, app.request("GET", "/legacy/dashboard/inbox/"+conversationID, nil, jar, ""))
 	if !strings.Contains(detail, "Approve") || !strings.Contains(detail, "conversations.add_note") {
 		t.Fatalf("approval card must render before decision")
 	}
@@ -339,7 +339,7 @@ func TestCopilotGate(t *testing.T) {
 		t.Fatalf("insert chunk: %v", err)
 	}
 
-	detail := pageBody(t, app.request("GET", "/dashboard/inbox/"+conversationID, nil, jar, ""))
+	detail := pageBody(t, app.request("GET", "/legacy/dashboard/inbox/"+conversationID, nil, jar, ""))
 	if !strings.Contains(detail, "Draft with copilot") {
 		t.Fatalf("detail page missing copilot button")
 	}

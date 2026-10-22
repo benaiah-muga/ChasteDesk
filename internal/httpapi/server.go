@@ -3,7 +3,9 @@ package httpapi
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -15,21 +17,25 @@ import (
 
 	"chastedesk/internal/config"
 	"chastedesk/internal/db"
+	"chastedesk/internal/observability"
 	"chastedesk/internal/queue"
 	"chastedesk/internal/web"
 	"chastedesk/internal/widget"
 )
 
 type Server struct {
-	cfg    config.Config
-	logger *slog.Logger
-	pool   *pgxpool.Pool
-	repo   *db.Repo
-	queue  *queue.Queue
+	cfg      config.Config
+	logger   *slog.Logger
+	pool     *pgxpool.Pool
+	repo     *db.Repo
+	queue    *queue.Queue
+	metrics  *observability.Metrics
+	notifier *observability.Notifier
 }
 
 func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
-	s := &Server{cfg: cfg, logger: logger, pool: pool}
+	s := &Server{cfg: cfg, logger: logger, pool: pool, metrics: observability.NewMetrics()}
+	s.notifier = observability.NewNotifier(cfg.AlertWebhookURL, cfg.AlertWebhookSecret, logger, s.metrics)
 	if pool != nil {
 		s.repo = db.NewRepo(pool)
 		s.queue = queue.New(pool)
@@ -38,6 +44,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("GET /", s.handleRoot)
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/ready", s.handleReady)
+	mux.HandleFunc("GET /metrics", s.handleMetrics)
 	mux.HandleFunc("POST /api/bootstrap", s.handleBootstrap)
 	mux.HandleFunc("POST /api/auth/sign-up/email", s.handleSignUp)
 	mux.HandleFunc("POST /api/auth/sign-in/email", s.handleSignIn)
@@ -82,27 +89,62 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("GET /api/settings/widget", s.handleWidgetGet)
 	mux.HandleFunc("PUT /api/settings/widget", s.handleWidgetPut)
 	mux.HandleFunc("GET /api/settings/widget-token", s.handleWidgetToken)
+	mux.HandleFunc("GET /api/app/session", s.handleConsoleSession)
+	mux.HandleFunc("POST /api/app/setup", s.handleConsoleSetup)
+	mux.HandleFunc("GET /api/app/overview", s.handleConsoleOverview)
+	mux.HandleFunc("GET /api/app/inbox", s.handleConsoleInbox)
+	mux.HandleFunc("POST /api/app/inbox/bulk", s.handleConsoleInboxBulk)
+	mux.HandleFunc("PATCH /api/app/inbox/{id}/ticket", s.handleConsoleTicketUpdate)
+	mux.HandleFunc("GET /api/app/canned-replies", s.handleConsoleCannedReplies)
+	mux.HandleFunc("POST /api/app/canned-replies", s.handleConsoleCannedReplyCreate)
+	mux.HandleFunc("PATCH /api/app/canned-replies/{id}", s.handleConsoleCannedReplyUpdate)
+	mux.HandleFunc("DELETE /api/app/canned-replies/{id}", s.handleConsoleCannedReplyDelete)
+	mux.HandleFunc("GET /api/app/customers", s.handleConsoleCustomers)
+	mux.HandleFunc("GET /api/app/customers/{id}", s.handleConsoleCustomer)
+	mux.HandleFunc("GET /api/app/approvals", s.handleConsoleApprovals)
+	mux.HandleFunc("POST /api/app/approvals/bulk", s.handleConsoleApprovalsBulk)
+	mux.HandleFunc("GET /api/app/knowledge", s.handleConsoleKnowledge)
+	mux.HandleFunc("POST /api/app/knowledge", s.handleKnowledgeSourceCreate)
+	mux.HandleFunc("PATCH /api/app/knowledge/{id}", s.handleConsoleKnowledgeUpdate)
+	mux.HandleFunc("POST /api/app/knowledge/{id}/reindex", s.handleConsoleKnowledgeReindex)
+	mux.HandleFunc("DELETE /api/app/knowledge/{id}", s.handleConsoleKnowledgeDelete)
+	mux.HandleFunc("GET /api/app/analytics", s.handleConsoleAnalytics)
+	mux.HandleFunc("GET /api/app/audit", s.handleConsoleAudit)
+	mux.HandleFunc("GET /api/app/audit/export", s.handleAuditExport)
+	mux.HandleFunc("GET /api/app/search", s.handleConsoleSearch)
+	mux.HandleFunc("GET /api/app/settings", s.handleConsoleSettings)
+	mux.HandleFunc("POST /api/app/settings/providers", s.handleConsoleProviderSave)
+	mux.HandleFunc("DELETE /api/app/settings/providers/{id}", s.handleConsoleProviderDelete)
+	mux.HandleFunc("POST /api/app/settings/widget", s.handleConsoleWidgetSave)
+	mux.HandleFunc("POST /api/app/settings/agent", s.handleConsoleAgentSave)
+	mux.HandleFunc("POST /api/app/settings/api-keys", s.handleConsoleAPIKeyCreate)
+	mux.HandleFunc("DELETE /api/app/settings/api-keys/{id}", s.handleConsoleAPIKeyRevoke)
+	mux.HandleFunc("POST /api/app/settings/workspace", s.handleConsoleWorkspaceSave)
+	mux.HandleFunc("POST /api/app/settings/sla", s.handleConsoleSLASave)
+	mux.HandleFunc("PATCH /api/app/settings/members/{id}", s.handleConsoleMemberRole)
+	mux.HandleFunc("DELETE /api/app/settings/members/{id}", s.handleConsoleMemberRemove)
+	mux.HandleFunc("POST /api/app/settings/members/{id}/revoke-sessions", s.handleConsoleMemberRevokeSessions)
+	mux.HandleFunc("POST /api/app/settings/account", s.handleConsoleAccountSave)
+	mux.HandleFunc("POST /api/app/settings/invitations", s.handleConsoleInviteCreate)
+	mux.HandleFunc("DELETE /api/app/settings/invitations/{id}", s.handleConsoleInviteRevoke)
+	mux.HandleFunc("GET /api/app/account", s.handleConsoleAccount)
+	mux.HandleFunc("POST /api/app/account", s.handleConsoleAccountSave)
+	mux.HandleFunc("GET /api/app/invitations/{id}", s.handleConsoleInvitation)
+	mux.HandleFunc("POST /api/app/invitations/{id}/accept", s.handleConsoleInvitationAccept)
 	mux.HandleFunc("GET /static/", s.handleStatic)
 	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/static/mark.svg", http.StatusSeeOther)
+		http.Redirect(w, r, "/static/favicon-32.png", http.StatusSeeOther)
 	})
-	mux.HandleFunc("GET /setup", s.handleSetupPage)
 	mux.HandleFunc("POST /setup", s.handleSetupSubmit)
-	mux.HandleFunc("GET /login", s.handleLoginPage)
 	mux.HandleFunc("POST /login", s.handleLoginSubmit)
 	mux.HandleFunc("POST /logout", s.handleLogout)
-	mux.HandleFunc("GET /onboarding", s.handleOnboardingPage)
 	mux.HandleFunc("POST /onboarding/provider", s.handleOnboardingProvider)
 	mux.HandleFunc("POST /onboarding/add", s.handleOnboardingAdd)
 	mux.HandleFunc("POST /onboarding/finish", s.handleOnboardingFinish)
-	mux.HandleFunc("GET /dashboard", s.handleOverviewPage)
-	mux.HandleFunc("GET /dashboard/knowledge", s.handleKnowledgePage)
-	mux.HandleFunc("GET /dashboard/knowledge/sources", s.handleKnowledgeSourcesPartial)
 	mux.HandleFunc("POST /dashboard/knowledge/add", s.handleKnowledgeAdd)
 	mux.HandleFunc("POST /dashboard/knowledge/scope", s.handleKnowledgeScope)
 	mux.HandleFunc("POST /dashboard/knowledge/delete", s.handleKnowledgeDelete)
 	mux.HandleFunc("POST /dashboard/knowledge/reindex", s.handleKnowledgeReindex)
-	mux.HandleFunc("GET /dashboard/settings", s.handleSettingsPage)
 	mux.HandleFunc("POST /dashboard/settings/providers", s.handleSettingsProviderSave)
 	mux.HandleFunc("POST /dashboard/settings/providers/test", s.handleSettingsProviderTest)
 	mux.HandleFunc("POST /dashboard/settings/providers/remove", s.handleSettingsProviderRemove)
@@ -114,34 +156,46 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /dashboard/settings/account", s.handleSettingsAccountSave)
 	mux.HandleFunc("POST /dashboard/settings/invite", s.handleSettingsInviteCreate)
 	mux.HandleFunc("POST /dashboard/settings/invite/revoke", s.handleSettingsInviteRevoke)
-	mux.HandleFunc("GET /invite/{id}", s.handleInvitePage)
 	mux.HandleFunc("POST /invite/{id}", s.handleInviteSubmit)
-	mux.HandleFunc("GET /dashboard/inbox", s.handleInboxPage)
-	mux.HandleFunc("GET /dashboard/inbox/list", s.handleInboxListPartial)
-	mux.HandleFunc("GET /dashboard/inbox/{id}", s.handleInboxDetailPage)
-	mux.HandleFunc("GET /dashboard/inbox/{id}/live", s.handleInboxLivePartial)
 	mux.HandleFunc("POST /dashboard/inbox/action", s.handleInboxActionForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/reply", s.handleInboxReplyForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/resolve", s.handleInboxResolveForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/assign", s.handleInboxAssignForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/copilot", s.handleInboxCopilotForm)
 	mux.HandleFunc("POST /dashboard/inbox/{id}/copilot/send", s.handleInboxCopilotSendForm)
-	mux.HandleFunc("GET /dashboard/analytics", s.handleAnalyticsPage)
 	mux.HandleFunc("POST /dashboard/analytics/rollup", s.handleAnalyticsRollupPage)
-	mux.HandleFunc("GET /dashboard/audit", s.handleAuditPage)
-	mux.HandleFunc("GET /dashboard/audit/export", s.handleAuditExport)
-	mux.HandleFunc("GET /dashboard/customers", s.handleCustomersPage)
-	mux.HandleFunc("GET /dashboard/customers/{id}", s.handleCustomerDetailPage)
-	mux.HandleFunc("GET /dashboard/approvals", s.handleApprovalsPage)
-	mux.HandleFunc("GET /dashboard/account", s.handleAccountPage)
+	mux.HandleFunc("GET /login", s.handleConsolePage)
+	mux.HandleFunc("GET /setup", s.handleConsolePage)
+	mux.HandleFunc("GET /onboarding", s.handleConsolePage)
+	mux.HandleFunc("GET /invite/{id}", s.handleConsolePage)
+	mux.HandleFunc("GET /dashboard", s.handleConsolePage)
+	mux.HandleFunc("GET /dashboard/{rest...}", s.handleConsolePage)
+	mux.Handle("GET /legacy/", http.StripPrefix("/legacy", s.legacyPages()))
 	mux.HandleFunc("GET /api/", s.handleNotFound)
 	mux.HandleFunc("/", s.handleNotFound)
 	var handler http.Handler = mux
-	handler = s.withRequestLog(handler)
 	handler = s.withWidgetCORS(handler)
 	handler = s.withOriginCheck(handler)
 	handler = s.withSecurityHeaders(handler)
+	handler = (&observability.Middleware{Metrics: s.metrics, Notifier: s.notifier, Logger: s.logger}).Wrap(handler)
 	return handler
+}
+
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MetricsToken == "" && s.cfg.AppEnv == "production" {
+		s.handleNotFound(w, r)
+		return
+	}
+	if s.cfg.MetricsToken != "" {
+		provided := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		if subtle.ConstantTimeCompare([]byte(provided), []byte(s.cfg.MetricsToken)) != 1 {
+			writeErrorBody(w, http.StatusUnauthorized, "unauthorized", "metrics token required")
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.WriteString(w, s.metrics.Render(r.Context(), s.pool))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -166,13 +220,6 @@ func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	s.renderPageError(w, r, http.StatusNotFound, "Off the desk", "That page does not exist. It may have moved, or the link may be old. The inbox is still where you left it.")
 }
 
-func (s *Server) withRequestLog(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.logger.Debug("request", "method", r.Method, "path", r.URL.Path)
-		next.ServeHTTP(w, r)
-	})
-}
-
 func (s *Server) withSecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headers := w.Header()
@@ -189,7 +236,7 @@ func (s *Server) withSecurityHeaders(next http.Handler) http.Handler {
 				"img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; "+
 				"script-src 'self'; connect-src 'self'; object-src 'none'; manifest-src 'self'")
 		path := r.URL.Path
-		if strings.HasPrefix(path, "/dashboard") || path == "/onboarding" || path == "/login" || path == "/setup" {
+		if strings.HasPrefix(path, "/dashboard") || strings.HasPrefix(path, "/api/app") || path == "/onboarding" || path == "/login" || path == "/setup" {
 			headers.Set("Cache-Control", "no-store, max-age=0")
 		}
 		next.ServeHTTP(w, r)
@@ -243,10 +290,12 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/svg+xml")
 	case strings.HasSuffix(path, ".woff2"):
 		w.Header().Set("Content-Type", "font/woff2")
+	case strings.HasSuffix(path, ".png"):
+		w.Header().Set("Content-Type", "image/png")
 	case strings.HasSuffix(path, ".txt"):
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	}
-	if strings.Contains(path, "/fonts/") || strings.HasSuffix(path, "htmx.min.js") {
+	if strings.Contains(path, "/fonts/") || strings.HasPrefix(path, "static/console/assets/") || strings.HasSuffix(path, "htmx.min.js") {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {
 		w.Header().Set("Cache-Control", "public, max-age=3600")

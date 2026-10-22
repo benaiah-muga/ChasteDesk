@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -47,10 +48,11 @@ func (p openAIProvider) apiKey(cfg Config) string {
 }
 
 type openAIMessage struct {
-	Role       string           `json:"role"`
-	Content    string           `json:"content"`
-	ToolCalls  []openAIToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string           `json:"tool_call_id,omitempty"`
+	Role             string           `json:"role"`
+	Content          string           `json:"content"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
+	ToolCalls        []openAIToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string           `json:"tool_call_id,omitempty"`
 }
 
 type openAIToolCall struct {
@@ -77,10 +79,11 @@ func convertOpenAIMessages(messages []Message) []openAIMessage {
 		converted := openAIMessage{Role: message.Role, Content: message.Content}
 		if message.Role == "assistant" && message.ToolCallID != "" && message.ToolName != "" {
 			call := openAIToolCall{ID: message.ToolCallID, Type: "function"}
-			call.Function.Name = message.ToolName
+			call.Function.Name = wireToolName(message.ToolName)
 			call.Function.Arguments = message.Content
 			converted.ToolCalls = []openAIToolCall{call}
 			converted.Content = ""
+			converted.ReasoningContent = message.Reasoning
 		}
 		if message.Role == "tool" {
 			converted.ToolCallID = message.ToolCallID
@@ -90,6 +93,19 @@ func convertOpenAIMessages(messages []Message) []openAIMessage {
 	return out
 }
 
+func wireToolName(name string) string {
+	var builder strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
+			builder.WriteRune(r)
+		default:
+			builder.WriteByte('_')
+		}
+	}
+	return builder.String()
+}
+
 func convertOpenAITools(tools []ToolDeclaration) []openAITool {
 	if len(tools) == 0 {
 		return nil
@@ -97,7 +113,7 @@ func convertOpenAITools(tools []ToolDeclaration) []openAITool {
 	out := make([]openAITool, 0, len(tools))
 	for _, tool := range tools {
 		converted := openAITool{Type: "function"}
-		converted.Function.Name = tool.ID
+		converted.Function.Name = wireToolName(tool.ID)
 		converted.Function.Description = tool.Description
 		converted.Function.Parameters = tool.Parameters
 		out = append(out, converted)
@@ -108,8 +124,9 @@ func convertOpenAITools(tools []ToolDeclaration) []openAITool {
 type openAIChatResponse struct {
 	Choices []struct {
 		Message struct {
-			Content   *string          `json:"content"`
-			ToolCalls []openAIToolCall `json:"tool_calls"`
+			Content          *string          `json:"content"`
+			ReasoningContent *string          `json:"reasoning_content"`
+			ToolCalls        []openAIToolCall `json:"tool_calls"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
@@ -136,6 +153,10 @@ func (p openAIProvider) Chat(ctx context.Context, cfg Config, req ChatRequest) (
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return ChatResult{}, err
+	}
+	toolNames := make(map[string]string, len(req.Tools))
+	for _, tool := range req.Tools {
+		toolNames[wireToolName(tool.ID)] = tool.ID
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, p.chatBase(cfg)+"/chat/completions", bytes.NewReader(encoded))
 	if err != nil {
@@ -173,8 +194,13 @@ func (p openAIProvider) Chat(ctx context.Context, cfg Config, req ChatRequest) (
 			}
 			var args any
 			_ = json.Unmarshal([]byte(call.Function.Arguments), &args)
-			result.ToolCalls = append(result.ToolCalls, ToolCall{ID: id, ToolID: call.Function.Name, Args: args})
+			toolID := call.Function.Name
+			if original, ok := toolNames[toolID]; ok {
+				toolID = original
+			}
+			result.ToolCalls = append(result.ToolCalls, ToolCall{ID: id, ToolID: toolID, Args: args})
 		}
+		result.Reasoning = choice.Message.ReasoningContent
 		result.FinishReason = mapFinishReason(choice.FinishReason)
 		if len(result.ToolCalls) > 0 && result.FinishReason != FinishToolCalls {
 			result.FinishReason = FinishToolCalls

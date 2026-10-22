@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import { useEffect, useState } from "react";
+
+export function useDebouncedValue<T>(value: T, delay = 250): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timeout);
+  }, [value, delay]);
+  return debounced;
+}

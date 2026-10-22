@@ -20,7 +20,7 @@ func TestSetupFlow(t *testing.T) {
 		t.Fatalf("empty install root must redirect to setup, got %d", root.status)
 	}
 
-	setup := app.getPage(t, "/setup", jar)
+	setup := app.getPage(t, "/legacy/setup", jar)
 	page := pageBody(t, setup)
 	for _, needle := range []string{"Create your desk", `id="orgName"`, `id="userName"`, `id="email"`, `id="password"`, "Create the desk", "Support that shows its work."} {
 		if !strings.Contains(page, needle) {
@@ -36,7 +36,7 @@ func TestSetupFlow(t *testing.T) {
 		t.Fatalf("setup submit: %d %s", created.status, created.body)
 	}
 
-	dashboard := app.getPage(t, "/dashboard", jar)
+	dashboard := app.getPage(t, "/legacy/dashboard", jar)
 	dashboardPage := pageBody(t, dashboard)
 	for _, needle := range []string{"Overview", "Agent readiness", "Recent conversations", "What needs a human", "ChasteDesk", "Kestrel Support"} {
 		if !strings.Contains(dashboardPage, needle) {
@@ -44,21 +44,21 @@ func TestSetupFlow(t *testing.T) {
 		}
 	}
 
-	again := app.getPageRaw(t, "/setup", jar)
+	again := app.getPageRaw(t, "/legacy/setup", jar)
 	if again.status != http.StatusSeeOther {
 		t.Fatalf("setup after organization exists must redirect, got %d", again.status)
 	}
-	loggedInLogin := app.getPageRaw(t, "/login", jar)
+	loggedInLogin := app.getPageRaw(t, "/legacy/login", jar)
 	if loggedInLogin.status != http.StatusSeeOther {
 		t.Fatalf("login when signed in must redirect, got %d", loggedInLogin.status)
 	}
 
 	app.postForm(t, "/logout", url.Values{}, jar)
-	signedOut := app.getPageRaw(t, "/dashboard", jar)
+	signedOut := app.getPageRaw(t, "/legacy/dashboard", jar)
 	if signedOut.status != http.StatusSeeOther {
 		t.Fatalf("dashboard after logout must redirect, got %d", signedOut.status)
 	}
-	login := app.getPage(t, "/login", jar)
+	login := app.getPage(t, "/legacy/login", jar)
 	if !strings.Contains(pageBody(t, login), "Sign in to your desk") {
 		t.Fatal("login page must render after logout")
 	}
@@ -115,7 +115,7 @@ func TestProductSurfaces(t *testing.T) {
 		{"/dashboard/account", []string{"Account", "Password", "Save account"}},
 	}
 	for _, page := range pages {
-		body := pageBody(t, app.getPage(t, page.path, jar))
+		body := pageBody(t, app.getPage(t, "/legacy"+page.path, jar))
 		for _, needle := range page.want {
 			if !strings.Contains(body, needle) {
 				t.Fatalf("%s missing %q", page.path, needle)
@@ -123,7 +123,7 @@ func TestProductSurfaces(t *testing.T) {
 		}
 	}
 
-	agentPage := pageBody(t, app.getPage(t, "/dashboard/settings?section=agent", jar))
+	agentPage := pageBody(t, app.getPage(t, "/legacy/dashboard/settings?section=agent", jar))
 	if strings.Contains(agentPage, `selected="false"`) || strings.Contains(agentPage, `checked="false"`) {
 		t.Fatal("boolean attributes must not render as selected=\"false\"/checked=\"false\"")
 	}
@@ -170,7 +170,7 @@ func TestProductSurfaces(t *testing.T) {
 	if err := app.pool.QueryRow(ctx, `select id from invitation where organization_id = $1 and email = 'robin@product.test'`, orgID).Scan(&invitationID); err != nil {
 		t.Fatalf("invitation row: %v", err)
 	}
-	invitePage := pageBody(t, app.getPage(t, "/invite/"+invitationID, newTestJar()))
+	invitePage := pageBody(t, app.getPage(t, "/legacy/invite/"+invitationID, newTestJar()))
 	for _, needle := range []string{"robin@product.test", "Product Org", "Accept invitation", "Agent"} {
 		if !strings.Contains(invitePage, needle) {
 			t.Fatalf("invite page missing %q", needle)
@@ -181,11 +181,11 @@ func TestProductSurfaces(t *testing.T) {
 	if accepted.status != http.StatusSeeOther {
 		t.Fatalf("invite accept: %d %s", accepted.status, accepted.body)
 	}
-	robinDashboard := pageBody(t, app.getPage(t, "/dashboard", robinJar))
+	robinDashboard := pageBody(t, app.getPage(t, "/legacy/dashboard", robinJar))
 	if !strings.Contains(robinDashboard, "Robin Vale") {
 		t.Fatal("accepted member must have a working session")
 	}
-	robinAccount := pageBody(t, app.getPage(t, "/dashboard/account", robinJar))
+	robinAccount := pageBody(t, app.getPage(t, "/legacy/dashboard/account", robinJar))
 	if !strings.Contains(robinAccount, "Save account") || !strings.Contains(robinAccount, "Password") {
 		t.Fatal("agent must be able to reach account settings")
 	}

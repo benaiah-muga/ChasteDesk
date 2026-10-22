@@ -60,16 +60,24 @@ func (s *Server) handleInboxConversations(w http.ResponseWriter, r *http.Request
 }
 
 type inboxConversationRow struct {
-	ID              string
-	CustomerID      string
-	Status          string
-	Channel         string
-	Handoff         []byte
-	FirstResponseAt *time.Time
-	ResolvedAt      *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	AssignedName    string
+	TicketNumber       int64
+	Priority           string
+	Tags               []string
+	SnoozedUntil       *time.Time
+	FirstResponseDueAt *time.Time
+	ResolutionDueAt    *time.Time
+	ID                 string
+	CustomerID         string
+	Status             string
+	Channel            string
+	Handoff            []byte
+	FirstResponseAt    *time.Time
+	ResolvedAt         *time.Time
+	ClosedAt           *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	AssignedName       string
+	AssignedUserID     *string
 }
 
 func loadInboxConversation(ctx context.Context, queryer interface {
@@ -77,12 +85,13 @@ func loadInboxConversation(ctx context.Context, queryer interface {
 }, orgID, conversationID string) (inboxConversationRow, error) {
 	var row inboxConversationRow
 	err := queryer.QueryRow(ctx,
-		`select c.id, c.customer_id, c.status::text, c.channel::text, c.handoff, c.first_response_at, c.resolved_at, c.created_at, c.updated_at,
-		        coalesce(au.name, '')
+		`select c.ticket_number, c.priority, c.tags, c.snoozed_until, c.first_response_due_at, c.resolution_due_at,
+		        c.id, c.customer_id, c.status::text, c.channel::text, c.handoff, c.first_response_at, c.resolved_at, c.closed_at, c.created_at, c.updated_at,
+		        coalesce(au.name, ''), c.assigned_user_id
 		   from conversations c
 		   left join "user" au on au.id = c.assigned_user_id
 		   where c.id = $1 and c.org_id = $2`, conversationID, orgID).
-		Scan(&row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.Handoff, &row.FirstResponseAt, &row.ResolvedAt, &row.CreatedAt, &row.UpdatedAt, &row.AssignedName)
+		Scan(&row.TicketNumber, &row.Priority, &row.Tags, &row.SnoozedUntil, &row.FirstResponseDueAt, &row.ResolutionDueAt, &row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.Handoff, &row.FirstResponseAt, &row.ResolvedAt, &row.ClosedAt, &row.CreatedAt, &row.UpdatedAt, &row.AssignedName, &row.AssignedUserID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return row, apperr.NotFound("conversation not found")
 	}
@@ -248,8 +257,15 @@ func (s *Server) handleInboxConversation(w http.ResponseWriter, r *http.Request)
 	}
 
 	conversationItem := map[string]any{
-		"id": conversation.ID, "customerId": conversation.CustomerID, "status": conversation.Status,
+		"id": conversation.ID, "ticketNumber": conversation.TicketNumber,
+		"customerId": conversation.CustomerID, "status": conversation.Status,
 		"channel": conversation.Channel, "createdAt": conversation.CreatedAt, "updatedAt": conversation.UpdatedAt,
+		"priority": conversation.Priority, "tags": conversation.Tags, "snoozedUntil": conversation.SnoozedUntil,
+		"firstResponseDueAt": conversation.FirstResponseDueAt, "resolutionDueAt": conversation.ResolutionDueAt,
+		"slaBreached": slaBreached(conversation.FirstResponseAt, conversation.FirstResponseDueAt, conversation.ResolutionDueAt, conversation.Status),
+	}
+	if conversation.ClosedAt != nil {
+		conversationItem["closedAt"] = conversation.ClosedAt
 	}
 	if len(conversation.Handoff) > 0 && string(conversation.Handoff) != "null" {
 		conversationItem["handoff"] = json.RawMessage(conversation.Handoff)
@@ -260,6 +276,8 @@ func (s *Server) handleInboxConversation(w http.ResponseWriter, r *http.Request)
 	if conversation.ResolvedAt != nil {
 		conversationItem["resolvedAt"] = conversation.ResolvedAt
 	}
+	conversationItem["assignedName"] = conversation.AssignedName
+	conversationItem["assignedUserId"] = conversation.AssignedUserID
 
 	writeData(w, http.StatusOK, map[string]any{
 		"conversation":        conversationItem,
@@ -292,11 +310,13 @@ func (s *Server) inboxReply(ctx context.Context, sess *auth.Session, conversatio
 	}
 	if !internal {
 		status := conversation.Status
-		if status == "awaiting_human" || status == "ai_active" {
+		if status != "human_active" {
 			status = "human_active"
 		}
 		if _, err := s.pool.Exec(ctx,
-			`update conversations set status = $2, first_response_at = coalesce(first_response_at, now()), updated_at = now() where id = $1`,
+			`update conversations set status = $2, first_response_at = coalesce(first_response_at, now()),
+			   resolved_at = null, closed_at = null, snoozed_until = null, updated_at = now()
+			 where id = $1`,
 			conversationID, status); err != nil {
 			return "", err
 		}
@@ -343,23 +363,32 @@ func (s *Server) inboxResolve(ctx context.Context, sess *auth.Session, conversat
 	var (
 		status     string
 		resolvedAt *time.Time
+		closedAt   *time.Time
+		now        = time.Now()
 	)
-	if action == "resolve" {
+	switch action {
+	case "resolve":
 		status = "resolved"
-		now := time.Now()
 		resolvedAt = &now
-	} else {
+	case "close":
+		status = "closed"
+		resolvedAt = &now
+		closedAt = &now
+	case "reopen":
 		status = "human_active"
+	default:
+		return apperr.BadRequest("action must be resolve, close, or reopen")
 	}
 	tag, err := s.pool.Exec(ctx,
-		`update conversations set status = $2, resolved_at = $3, updated_at = now() where id = $1 and org_id = $4`,
-		conversationID, status, resolvedAt, sess.OrgID)
+		`update conversations set status = $2, resolved_at = $3, closed_at = $4, snoozed_until = null, updated_at = now() where id = $1 and org_id = $5`,
+		conversationID, status, resolvedAt, closedAt, sess.OrgID)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
 		return apperr.NotFound("conversation not found")
 	}
+	s.publishConversationEvent(ctx, sess.OrgID, conversationID, "conversation."+action)
 	return s.repo.WriteAudit(db.WithOrg(ctx, sess.OrgID), db.AuditInput{
 		ActorType: db.ActorUser, ActorID: &sess.UserID, Type: "conversation.updated",
 		TargetType: "conversation", TargetID: &conversationID, Payload: map[string]any{"action": action},
@@ -376,8 +405,8 @@ func (s *Server) handleInboxResolve(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, r, err)
 		return
 	}
-	if body.Action != "resolve" && body.Action != "reopen" {
-		writeErrorBody(w, http.StatusBadRequest, "bad_request", "action must be resolve or reopen")
+	if body.Action != "resolve" && body.Action != "close" && body.Action != "reopen" {
+		writeErrorBody(w, http.StatusBadRequest, "bad_request", "action must be resolve, close, or reopen")
 		return
 	}
 	if err := s.inboxResolve(r.Context(), sess, r.PathValue("id"), body.Action); err != nil {
@@ -401,13 +430,26 @@ func (s *Server) handleInboxAssign(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, r, err)
 		return
 	}
-	assigned := sess.UserID
-	if body.AssignedUserID != nil {
-		assigned = *body.AssignedUserID
+	var assigned *string
+	if body.AssignedUserID != nil && strings.TrimSpace(*body.AssignedUserID) != "" {
+		userID := strings.TrimSpace(*body.AssignedUserID)
+		var member bool
+		if err := s.pool.QueryRow(r.Context(),
+			`select exists(select 1 from member where organization_id = $1 and user_id = $2)`,
+			sess.OrgID, userID).Scan(&member); err != nil {
+			s.respondError(w, r, err)
+			return
+		}
+		if !member {
+			writeErrorBody(w, http.StatusBadRequest, "bad_request", "That teammate is not a member of this workspace.")
+			return
+		}
+		assigned = &userID
 	}
+	conversationID := r.PathValue("id")
 	tag, err := s.pool.Exec(r.Context(),
 		`update conversations set assigned_user_id = $2, updated_at = now() where id = $1 and org_id = $3`,
-		r.PathValue("id"), assigned, sess.OrgID)
+		conversationID, assigned, sess.OrgID)
 	if err != nil {
 		s.respondError(w, r, err)
 		return
@@ -416,7 +458,11 @@ func (s *Server) handleInboxAssign(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, r, apperr.NotFound("conversation not found"))
 		return
 	}
-	writeData(w, http.StatusOK, map[string]any{"assigned": true})
+	_ = s.repo.WriteAudit(db.WithOrg(r.Context(), sess.OrgID), db.AuditInput{
+		ActorType: db.ActorUser, ActorID: &sess.UserID, Type: "conversation.updated",
+		TargetType: "conversation", TargetID: &conversationID, Payload: map[string]any{"assigned": assigned},
+	})
+	writeData(w, http.StatusOK, map[string]any{"assigned": assigned != nil})
 }
 
 type copilotDraftBody struct {
