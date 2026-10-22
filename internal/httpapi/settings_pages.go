@@ -17,6 +17,7 @@ import (
 	"chastedesk/internal/agent"
 	"chastedesk/internal/auth"
 	"chastedesk/internal/db"
+	mailemail "chastedesk/internal/email"
 	"chastedesk/internal/id"
 	"chastedesk/internal/model"
 	"chastedesk/internal/ratelimit"
@@ -725,6 +726,13 @@ func (s *Server) handleSettingsInviteCreate(w http.ResponseWriter, r *http.Reque
 		TargetType: "invitation", TargetID: &invitationID, Payload: map[string]any{"email": email, "role": role},
 	})
 	link := s.cfg.AppURL + "/invite/" + invitationID
+	if s.cfg.SMTPHost != "" {
+		if orgName, nameErr := s.repo.OrgName(ctx); nameErr == nil {
+			if _, mailErr := mailemail.EnqueueInvitation(ctx, s.repo, orgName, email, link); mailErr != nil {
+				s.logger.Warn("invitation email enqueue failed", "error", mailErr)
+			}
+		}
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusCreated)
 	s.renderSettingsExtra(w, r, sess, "workspace", "", email, link)

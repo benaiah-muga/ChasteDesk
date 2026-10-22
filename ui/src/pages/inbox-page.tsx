@@ -527,6 +527,7 @@ function ConversationContextPanel({
             <span className="font-mono text-[10px] text-subtle">#{current.conversation.ticketNumber}</span>
           </div>
           <div className="mt-3 space-y-3">
+            {current.conversation.subject ? <div><p className="font-mono text-[8.5px] uppercase tracking-[0.07em] text-subtle">Subject</p><p className="mt-0.5 truncate text-[11px] text-ink-2">{current.conversation.subject}</p></div> : null}
             <div className="flex items-center justify-between gap-3">
               <span className="text-[11px] text-muted-foreground">Priority</span>
               <Select value={current.conversation.priority} onValueChange={(value) => onPriorityChange?.(value)} disabled={ticketUpdating}>
@@ -1256,6 +1257,7 @@ export function InboxPage() {
                   <span className="hidden shrink-0 sm:inline">opened {relativeTime(current.conversation.createdAt)}</span>
                   {assignedName ? <><span className="hidden shrink-0 text-subtle sm:inline">/</span><span className="hidden shrink-0 sm:inline">assigned to {assignedName}</span></> : null}
                 </div>
+                {current.conversation.channel === "email" && current.conversation.subject ? <p className="mt-0.5 truncate text-[10.5px] italic text-muted-foreground">{current.conversation.subject}</p> : null}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <DropdownMenu>

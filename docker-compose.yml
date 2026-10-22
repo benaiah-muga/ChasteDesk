@@ -45,6 +45,17 @@ services:
       APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
       APP_URL: ${APP_URL:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-starttls}
+      EMAIL_INBOUND_ADDRESS: ${EMAIL_INBOUND_ADDRESS:-}
+      EMAIL_INBOUND_SECRET: ${EMAIL_INBOUND_SECRET:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_WEBHOOK_SECRET: ${ALERT_WEBHOOK_SECRET:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -67,6 +78,15 @@ services:
       APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env}
       APP_URL: ${APP_URL:-http://localhost:3000}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-starttls}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_WEBHOOK_SECRET: ${ALERT_WEBHOOK_SECRET:-}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
       UPLOADS_DIR: /data/uploads
     volumes:

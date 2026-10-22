@@ -17,6 +17,7 @@ import (
 	"chastedesk/internal/apperr"
 	"chastedesk/internal/auth"
 	"chastedesk/internal/db"
+	"chastedesk/internal/email"
 	"chastedesk/internal/id"
 )
 
@@ -325,6 +326,13 @@ func (s *Server) handleSCIMCreateUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			s.respondError(w, r, err)
 			return
+		}
+	}
+	if user.Active && user.InvitationID != nil && s.cfg.SMTPHost != "" {
+		if orgName, orgErr := s.repo.OrgName(db.WithOrg(r.Context(), principal.OrgID)); orgErr == nil {
+			if _, mailErr := email.EnqueueInvitation(db.WithOrg(r.Context(), principal.OrgID), s.repo, orgName, userName, s.cfg.AppURL+"/invite/"+*user.InvitationID); mailErr != nil {
+				s.logger.Warn("SCIM activation email enqueue failed", "error", mailErr)
+			}
 		}
 	}
 	s.scimAudit(r, principal.OrgID, "scim.user.created", user.ID, map[string]any{"role": role, "userName": userName})

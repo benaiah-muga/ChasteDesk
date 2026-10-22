@@ -26,6 +26,7 @@ type inboxListRow struct {
 	SnoozedUntil       *time.Time
 	FirstResponseDueAt *time.Time
 	ResolutionDueAt    *time.Time
+	EmailSubject       string
 	ID                 string
 	CustomerID         string
 	Status             string
@@ -69,7 +70,7 @@ func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([
 			len(args), len(args), len(args), len(args), len(args))
 	}
 	rows, err := s.pool.Query(ctx,
-		`select c.ticket_number, c.priority, c.tags, c.snoozed_until, c.first_response_due_at, c.resolution_due_at,
+		`select c.ticket_number, c.priority, c.tags, c.snoozed_until, c.first_response_due_at, c.resolution_due_at, coalesce(c.email_subject, ''),
 		        c.id, c.customer_id::text, c.status::text, c.channel::text, c.created_at, c.first_response_at, c.handoff, c.updated_at,
 		        cu.name, cu.email, coalesce(lm.content, ''), coalesce(lm.role::text, ''), coalesce(au.name, ''), au.id,
 		        (select count(*)::int from actions a where a.conversation_id = c.id and a.status = 'pending_approval')
@@ -88,7 +89,7 @@ func (s *Server) queryInboxList(ctx context.Context, orgID, status, q string) ([
 	out := []inboxListRow{}
 	for rows.Next() {
 		var row inboxListRow
-		if err := rows.Scan(&row.TicketNumber, &row.Priority, &row.Tags, &row.SnoozedUntil, &row.FirstResponseDueAt, &row.ResolutionDueAt, &row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.CreatedAt, &row.FirstResponseAt, &row.Handoff, &row.UpdatedAt, &row.CustomerName, &row.CustomerEmail, &row.LastMessage, &row.LastMessageRole, &row.AssignedName, &row.AssignedUserID, &row.PendingActions); err != nil {
+		if err := rows.Scan(&row.TicketNumber, &row.Priority, &row.Tags, &row.SnoozedUntil, &row.FirstResponseDueAt, &row.ResolutionDueAt, &row.EmailSubject, &row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.CreatedAt, &row.FirstResponseAt, &row.Handoff, &row.UpdatedAt, &row.CustomerName, &row.CustomerEmail, &row.LastMessage, &row.LastMessageRole, &row.AssignedName, &row.AssignedUserID, &row.PendingActions); err != nil {
 			return nil, err
 		}
 		out = append(out, row)

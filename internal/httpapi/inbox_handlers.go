@@ -66,6 +66,7 @@ type inboxConversationRow struct {
 	SnoozedUntil       *time.Time
 	FirstResponseDueAt *time.Time
 	ResolutionDueAt    *time.Time
+	EmailSubject       string
 	ID                 string
 	CustomerID         string
 	Status             string
@@ -85,13 +86,13 @@ func loadInboxConversation(ctx context.Context, queryer interface {
 }, orgID, conversationID string) (inboxConversationRow, error) {
 	var row inboxConversationRow
 	err := queryer.QueryRow(ctx,
-		`select c.ticket_number, c.priority, c.tags, c.snoozed_until, c.first_response_due_at, c.resolution_due_at,
+		`select c.ticket_number, c.priority, c.tags, c.snoozed_until, c.first_response_due_at, c.resolution_due_at, coalesce(c.email_subject, ''),
 		        c.id, c.customer_id, c.status::text, c.channel::text, c.handoff, c.first_response_at, c.resolved_at, c.closed_at, c.created_at, c.updated_at,
 		        coalesce(au.name, ''), c.assigned_user_id
 		   from conversations c
 		   left join "user" au on au.id = c.assigned_user_id
 		   where c.id = $1 and c.org_id = $2`, conversationID, orgID).
-		Scan(&row.TicketNumber, &row.Priority, &row.Tags, &row.SnoozedUntil, &row.FirstResponseDueAt, &row.ResolutionDueAt, &row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.Handoff, &row.FirstResponseAt, &row.ResolvedAt, &row.ClosedAt, &row.CreatedAt, &row.UpdatedAt, &row.AssignedName, &row.AssignedUserID)
+		Scan(&row.TicketNumber, &row.Priority, &row.Tags, &row.SnoozedUntil, &row.FirstResponseDueAt, &row.ResolutionDueAt, &row.EmailSubject, &row.ID, &row.CustomerID, &row.Status, &row.Channel, &row.Handoff, &row.FirstResponseAt, &row.ResolvedAt, &row.ClosedAt, &row.CreatedAt, &row.UpdatedAt, &row.AssignedName, &row.AssignedUserID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return row, apperr.NotFound("conversation not found")
 	}
@@ -262,6 +263,7 @@ func (s *Server) handleInboxConversation(w http.ResponseWriter, r *http.Request)
 		"channel": conversation.Channel, "createdAt": conversation.CreatedAt, "updatedAt": conversation.UpdatedAt,
 		"priority": conversation.Priority, "tags": conversation.Tags, "snoozedUntil": conversation.SnoozedUntil,
 		"firstResponseDueAt": conversation.FirstResponseDueAt, "resolutionDueAt": conversation.ResolutionDueAt,
+		"subject":     conversation.EmailSubject,
 		"slaBreached": slaBreached(conversation.FirstResponseAt, conversation.FirstResponseDueAt, conversation.ResolutionDueAt, conversation.Status),
 	}
 	if conversation.ClosedAt != nil {

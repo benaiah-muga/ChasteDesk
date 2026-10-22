@@ -73,6 +73,12 @@ SLA policies are configured under **Settings → SLA policies**. Each priority h
 
 The worker scans active tickets every minute. New first-response or resolution breaches are recorded in `sla_breaches` and sent to `ALERT_WEBHOOK_URL` when configured. The inbox supports `?sla=breached`, and the overview attention queue shows the current breach count. Breach records are internal audit data; the console does not delete them when a ticket is resolved.
 
+## Email delivery
+
+Inbound email is accepted by the web process at `/api/email/inbound/postmark`. If the endpoint returns 401, check `EMAIL_INBOUND_SECRET`; if it returns 422, the recipient does not match `EMAIL_INBOUND_ADDRESS`. Duplicate provider retries return `duplicate: true` and do not create a second message.
+
+Outbound mail is sent by the worker from `email_outbox`. If delivery fails, the row retries with backoff and becomes `failed` after five attempts. Check **Settings, Email** for queued, sent, and failed counts. Test SMTP with the **Send test email** button. Verify SPF, DKIM, and DMARC before exposing the desk to customers.
+
 ## SCIM sync
 
 SCIM bearer tokens are created under **Settings, Provisioning** and shown once. If a provider reports 401, check that the token was copied whole and has not been revoked. If a provisioned user cannot sign in, copy their pending activation invitation from **Workspace**. Deactivating a user through SCIM removes membership and revokes sessions. The last owner cannot be deactivated or demoted through SCIM.

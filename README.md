@@ -53,6 +53,7 @@ Most AI support tools ask you to trust a black box. ChasteDesk takes the opposit
 - Keyboard command palette, a visible dark-mode switch, a live topbar clock, and responsive layouts from 320 px up.
 - Optional TOTP two-factor authentication with recovery codes, authenticated setup, and challenge-based sign-in.
 - SCIM 2.0 user provisioning with organization-scoped bearer tokens, role mapping, deactivation, and session revocation.
+- Inbound customer email, threaded ticket replies, SMTP delivery with retries, and transactional invitation email.
 
 ### Channels and operations
 - Embeddable vanilla-JS widget with Shadow DOM isolation, streaming replies, history restore, cross-origin CORS, and themed styling.

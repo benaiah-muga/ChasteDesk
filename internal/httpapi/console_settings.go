@@ -14,6 +14,7 @@ import (
 	"chastedesk/internal/apperr"
 	"chastedesk/internal/auth"
 	"chastedesk/internal/db"
+	"chastedesk/internal/email"
 	"chastedesk/internal/id"
 	"chastedesk/internal/model"
 )
@@ -96,6 +97,10 @@ func (s *Server) handleConsoleSettings(w http.ResponseWriter, r *http.Request) {
 			slaPolicies = append(slaPolicies, slaPolicyPayload(policy))
 		}
 	}
+	queuedEmail, sentEmail, failedEmail := 0, 0, 0
+	if q, sent, failed, err := s.repo.EmailOutboxCounts(db.WithOrg(r.Context(), sess.OrgID)); err == nil {
+		queuedEmail, sentEmail, failedEmail = q, sent, failed
+	}
 	scimTokens := []map[string]any{}
 	canManageSCIM := auth.Can(sess.Role, auth.CapOrgAdmin)
 	if canManageSCIM {
@@ -139,6 +144,11 @@ func (s *Server) handleConsoleSettings(w http.ResponseWriter, r *http.Request) {
 		"slaPolicies": slaPolicies,
 		"scim": map[string]any{
 			"baseUrl": s.cfg.AppURL + "/scim/v2", "tokens": scimTokens, "canManage": canManageSCIM,
+		},
+		"email": map[string]any{
+			"configured": s.cfg.SMTPHost != "", "from": s.cfg.SMTPFrom,
+			"inboundAddress": s.cfg.EmailInboundAddress, "inboundConfigured": s.cfg.EmailInboundSecret != "",
+			"queued": queuedEmail, "sent": sentEmail, "failed": failedEmail,
 		},
 	})
 }
@@ -490,6 +500,34 @@ type consoleAccountBody struct {
 	NewPassword     string `json:"newPassword"`
 }
 
+func (s *Server) handleConsoleEmailTest(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.requireCapability(w, r, auth.CapSettingsWrite)
+	if !ok {
+		return
+	}
+	sender := email.NewSender(email.SenderConfig{
+		Host: s.cfg.SMTPHost, Port: s.cfg.SMTPPort, Username: s.cfg.SMTPUsername,
+		Password: s.cfg.SMTPPassword, From: s.cfg.SMTPFrom, TLS: s.cfg.SMTPTLS,
+	})
+	if !sender.Enabled() {
+		writeErrorBody(w, http.StatusBadRequest, "smtp_not_configured", "SMTP is not configured on this deployment.")
+		return
+	}
+	subject := "ChasteDesk email delivery test"
+	text := "This is a test message from ChasteDesk. If you can read it, transactional email delivery is configured.\n"
+	htmlBody := "<p>This is a test message from ChasteDesk. If you can read it, transactional email delivery is configured.</p>"
+	if err := sender.Send(r.Context(), sess.Email, subject, text, htmlBody, sender.MessageID(), "", ""); err != nil {
+		s.logger.Warn("email test failed", "error", err)
+		writeErrorBody(w, http.StatusBadGateway, "email_delivery_failed", "The SMTP server rejected the test message.")
+		return
+	}
+	_ = s.repo.WriteAudit(db.WithOrg(r.Context(), sess.OrgID), db.AuditInput{
+		ActorType: db.ActorUser, ActorID: &sess.UserID, Type: "email.test.sent",
+		TargetType: "email", TargetID: nil, Payload: map[string]any{"to": sess.Email},
+	})
+	writeData(w, http.StatusOK, map[string]any{"sent": true, "to": sess.Email})
+}
+
 func (s *Server) handleConsoleAccount(w http.ResponseWriter, r *http.Request) {
 	sess, ok := s.requireCapability(w, r, auth.CapInboxUse)
 	if !ok {
@@ -597,9 +635,18 @@ func (s *Server) handleConsoleInviteCreate(w http.ResponseWriter, r *http.Reques
 		TargetType: "invitation", TargetID: &invitationID, Payload: map[string]any{"email": body.Email, "role": body.Role},
 	})
 	link := s.cfg.AppURL + "/invite/" + invitationID
+	emailQueued := s.cfg.SMTPHost != ""
+	if emailQueued {
+		if orgName, err := s.repo.OrgName(db.WithOrg(r.Context(), sess.OrgID)); err == nil {
+			if _, err := email.EnqueueInvitation(db.WithOrg(r.Context(), sess.OrgID), s.repo, orgName, body.Email, link); err != nil {
+				s.logger.Warn("invitation email enqueue failed", "error", err)
+				emailQueued = false
+			}
+		}
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeData(w, http.StatusCreated, map[string]any{
-		"id": invitationID, "email": body.Email, "role": body.Role, "link": link,
+		"id": invitationID, "email": body.Email, "role": body.Role, "link": link, "emailQueued": emailQueued,
 	})
 }
 

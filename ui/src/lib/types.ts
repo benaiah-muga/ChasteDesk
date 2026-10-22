@@ -66,6 +66,7 @@ export interface ConversationListItem {
   firstResponseDueAt?: string | null;
   resolutionDueAt?: string | null;
   slaBreached?: boolean;
+  subject?: string;
   status: string;
   statusLabel: string;
   channel: string;
@@ -147,6 +148,7 @@ export interface ConversationDetail {
     firstResponseDueAt?: string | null;
     resolutionDueAt?: string | null;
     slaBreached?: boolean;
+    subject?: string;
     customerId: string;
     status: string;
     channel: string;
@@ -330,6 +332,7 @@ export interface SettingsResponse {
   canAdmin: boolean;
   slaPolicies: SLAPolicy[];
   scim: SCIMSettings;
+  email: EmailSettings;
   providers: {
     id: string;
     providerId: string;
@@ -441,4 +444,14 @@ export interface SCIMSettings {
   baseUrl: string;
   tokens: SCIMToken[];
   canManage: boolean;
+}
+
+export interface EmailSettings {
+  configured: boolean;
+  from: string;
+  inboundAddress: string;
+  inboundConfigured: boolean;
+  queued: number;
+  sent: number;
+  failed: number;
 }

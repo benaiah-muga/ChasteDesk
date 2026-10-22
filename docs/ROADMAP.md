@@ -82,3 +82,9 @@ These are the production gaps that remain after the ticket operations and retrie
 - Selling customer data or telemetry
 
 Roadmap items are not commitments. They are the current direction, and they can change after operator feedback.
+
+
+### Email operations
+- Bounce, complaint, and suppression management
+- Mailbox polling for providers that do not support webhooks
+- Outbound delivery dashboards and resend controls

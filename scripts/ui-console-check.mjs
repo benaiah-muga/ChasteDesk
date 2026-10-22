@@ -166,6 +166,10 @@ try {
   await page.getByRole("heading", { name: "SCIM provisioning" }).waitFor();
   await page.getByText("SCIM 2.0 endpoint").waitFor();
 
+  await page.goto(baseURL + "/dashboard/settings/email", { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Email channel" }).waitFor();
+  await page.getByText("Outbound delivery").waitFor();
+
   await page.goto(baseURL + "/dashboard/customers", { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Customers" }).waitFor();
   await page.locator('a[href^="/dashboard/customers/"]').first().click();

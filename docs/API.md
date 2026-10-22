@@ -300,3 +300,10 @@ SCIM is organization-scoped through a bearer token created by an owner under Set
 | `DELETE` | `/scim/v2/Users/{id}` | Deactivate the user, remove membership, and revoke sessions |
 
 The `roles` attribute accepts `owner`, `admin`, or `agent`; it defaults to `agent`. A SCIM-created user gets a pending activation invitation. The owner can copy that link from Workspace until transactional email delivery sends it automatically. Deactivating the last owner is rejected.
+
+
+## Email channel
+
+Postmark-compatible inbound email is accepted at `POST /api/email/inbound/postmark`. The endpoint requires `EMAIL_INBOUND_SECRET` in `Authorization: Bearer`, `X-ChasteDesk-Email-Secret`, or a `token` query parameter. It validates the configured support mailbox, deduplicates by Message-ID, threads by ticket reference or message references, creates or reopens a conversation, and enqueues the AI response. Responses are `200` with `conversationId`, `messageId`, `duplicate`, and `newConversation`.
+
+Outbound replies and transactional invitations are queued in `email_outbox`. The worker delivers them over SMTP every 15 seconds with bounded retries. SMTP is configured through `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, and `SMTP_TLS`.

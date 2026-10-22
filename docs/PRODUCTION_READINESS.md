@@ -19,6 +19,7 @@ This page is deliberately candid. Use it to decide whether the current build fit
 - Owner-only member role changes, member removal, and session revocation, with last-owner protection and audit events.
 - Optional TOTP two-factor authentication with encrypted secrets, one-time recovery codes, challenge-based sign-in, and session revocation on enable or disable.
 - SCIM 2.0 user provisioning with organization-scoped bearer tokens, activation invitations, role mapping, deactivation, and session revocation.
+- Inbound customer email with Message-ID deduplication and ticket threading, outbound SMTP delivery with retries, and transactional invitation email.
 - Knowledge health, analytics, audit inspection, customer profiles, workspace settings, invitations, account security, and CSV audit export.
 - Dark mode, a single-panel sign-in, a live topbar clock, responsive layouts from 320 px, and WCAG A/AA checks on primary screens.
 - Health and readiness probes, Docker Compose, migrations, backup guidance, structured logs, and local-asset-only console builds.

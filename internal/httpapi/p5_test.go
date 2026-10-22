@@ -51,12 +51,14 @@ func startWorkerTestApp(t *testing.T, uploadsDir string) *workerTestApp {
 		jobs.Work(ctx, name, 4, handler)
 	}
 	cfg := config.Config{
-		Port:        0,
-		AppURL:      "https://127.0.0.1:4433",
-		DatabaseURL: dsn,
-		AppSecret:   strings.Repeat("s", 32),
-		LogLevel:    "debug",
-		UploadsDir:  uploadsDir,
+		Port:                0,
+		AppURL:              "https://127.0.0.1:4433",
+		DatabaseURL:         dsn,
+		AppSecret:           strings.Repeat("s", 32),
+		LogLevel:            "debug",
+		UploadsDir:          uploadsDir,
+		EmailInboundAddress: "support@chastedesk.test",
+		EmailInboundSecret:  "test-inbound-email-secret",
 	}
 	logs := &bytes.Buffer{}
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))

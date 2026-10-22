@@ -8,7 +8,7 @@ import (
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"PORT", "APP_URL", "LOG_LEVEL", "DATABASE_URL", "APP_SECRET"} {
+	for _, key := range []string{"PORT", "APP_URL", "LOG_LEVEL", "DATABASE_URL", "APP_SECRET", "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM", "SMTP_TLS", "EMAIL_INBOUND_ADDRESS", "EMAIL_INBOUND_SECRET"} {
 		t.Setenv(key, "")
 	}
 }
@@ -68,6 +68,11 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		{"unknown log level", map[string]string{"LOG_LEVEL": "verbose"}},
 		{"missing database url", map[string]string{"DATABASE_URL": ""}},
 		{"short app secret", map[string]string{"APP_SECRET": "too-short"}},
+		{"smtp without from", map[string]string{"SMTP_HOST": "smtp.example.com"}},
+		{"smtp invalid from", map[string]string{"SMTP_HOST": "smtp.example.com", "SMTP_FROM": "not-an-email"}},
+		{"smtp invalid tls", map[string]string{"SMTP_HOST": "smtp.example.com", "SMTP_FROM": "support@example.com", "SMTP_TLS": "ssl"}},
+		{"short inbound secret", map[string]string{"EMAIL_INBOUND_SECRET": "too-short"}},
+		{"inbound secret without address", map[string]string{"EMAIL_INBOUND_SECRET": "a-valid-inbound-secret"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

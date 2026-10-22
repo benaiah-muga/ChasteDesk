@@ -236,3 +236,8 @@ The account security screen renders authenticator setup QR codes with `qrcode.re
 ## SCIM
 
 SCIM 2.0 user endpoints live under `/scim/v2` and authenticate with organization-scoped bearer tokens, not dashboard sessions. Token management is owner-only under Settings, Provisioning. The implementation supports Users plus service discovery, with basic `userName` and `externalId` filters.
+
+
+## Email
+
+Inbound email is a Postmark-compatible JSON webhook at `/api/email/inbound/postmark`. It needs `EMAIL_INBOUND_SECRET` and a configured `EMAIL_INBOUND_ADDRESS`. Outbound mail is queued by a trigger on customer-facing messages and through `email.EnqueueInvitation`, then delivered by the worker's `email.StartDispatcher`. SMTP settings are environment-only.

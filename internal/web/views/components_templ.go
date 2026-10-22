@@ -159,6 +159,8 @@ func channelLabel(channel string) string {
 		return "Chat widget"
 	case "api":
 		return "API"
+	case "email":
+		return "Email"
 	}
 	return channel
 }

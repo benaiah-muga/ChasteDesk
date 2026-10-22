@@ -28,6 +28,7 @@ type consoleConversation struct {
 	FirstResponseDueAt *time.Time           `json:"firstResponseDueAt,omitempty"`
 	ResolutionDueAt    *time.Time           `json:"resolutionDueAt,omitempty"`
 	SLABreached        bool                 `json:"slaBreached"`
+	Subject            string               `json:"subject,omitempty"`
 	Status             string               `json:"status"`
 	StatusLabel        string               `json:"statusLabel"`
 	Channel            string               `json:"channel"`
@@ -227,7 +228,7 @@ func consoleConversationFromRow(row inboxListRow) consoleConversation {
 	item := consoleConversation{
 		ID: row.ID, TicketNumber: row.TicketNumber, Priority: row.Priority, Tags: row.Tags, SnoozedUntil: row.SnoozedUntil,
 		FirstResponseDueAt: row.FirstResponseDueAt, ResolutionDueAt: row.ResolutionDueAt, SLABreached: slaBreached(row.FirstResponseAt, row.FirstResponseDueAt, row.ResolutionDueAt, row.Status),
-		Status: row.Status, StatusLabel: statusLabel(row.Status),
+		Subject: row.EmailSubject, Status: row.Status, StatusLabel: statusLabel(row.Status),
 		Channel: row.Channel, ChannelLabel: views.ChannelLabel(row.Channel),
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, FirstResponseAt: row.FirstResponseAt,
 		Customer: consoleCustomerRef{ID: row.CustomerID, Name: customerName, Email: email, Initial: consoleInitial(customerName)},

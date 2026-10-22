@@ -36,9 +36,13 @@ The README features the banner and the inbox screenshot. This page holds the res
 | --- | --- |
 | ![SCIM token and endpoint configuration](assets/scim.png) | ![AI providers and settings navigation](assets/settings.png) |
 
-| Support agent | Chat widget |
+| Email channel | Support agent |
 | --- | --- |
-| ![Support agent policy, budgets, and tools](assets/agent.png) | ![Widget appearance, origins, and embed snippet](assets/widget.png) |
+| ![Inbound and outbound email configuration](assets/email.png) | ![Support agent policy, budgets, and tools](assets/agent.png) |
+
+| Chat widget |
+| --- |
+| ![Widget appearance, origins, and embed snippet](assets/widget.png) |
 
 | Account |
 | --- |

@@ -10,6 +10,10 @@ TOTP secrets are encrypted with AES-256-GCM derived from `APP_SECRET`. Recovery 
 
 SCIM bearer tokens are 256-bit random values prefixed with `cd_scim_`, stored only as SHA-256 hashes and shown once. Tokens are organization-scoped, revocable, and last-use tracked. SCIM endpoints require the bearer token, never a browser session. Created users receive a single-use activation invitation; deactivation removes membership and revokes sessions. Deactivating the last owner is rejected.
 
+## Email
+
+Inbound webhooks require a 128-bit-or-better `EMAIL_INBOUND_SECRET`, validated in constant time. The configured support mailbox must match the recipient. Message bodies are persisted but never written to logs. Inbound messages are deduplicated by Message-ID. Outbound SMTP credentials come from the environment, require STARTTLS or implicit TLS unless the relay is localhost, and are never returned to the browser. Invitation links are single-use and expire after seven days.
+
 ## Reporting
 
 Use a private GitHub security advisory on `benaiah-muga/ChasteDesk`. Do not open a public issue for an unpatched vulnerability. Include affected version, reproduction steps, and impact. This is an M1 preview, so fixes are best-effort.

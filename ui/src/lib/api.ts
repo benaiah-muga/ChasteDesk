@@ -230,6 +230,8 @@ export const api = {
     }),
   revokeSCIMToken: (id: string) =>
     request<{ revoked: boolean }>(`/api/app/settings/scim/tokens/${id}`, { method: "DELETE" }),
+  sendTestEmail: () =>
+    request<{ sent: boolean; to: string }>("/api/app/settings/email/test", { method: "POST" }),
   updateMemberRole: (id: string, role: string) =>
     request<{ updated: boolean; role: string; sessionsRevoked: number }>(`/api/app/settings/members/${id}`, {
       method: "PATCH",

@@ -69,6 +69,7 @@ try {
     ["settings", "/dashboard/settings/agent"],
     ["sla", "/dashboard/settings/sla"],
     ["scim", "/dashboard/settings/provisioning"],
+    ["email", "/dashboard/settings/email"],
     ["replies", "/dashboard/replies"],
     ["account", "/dashboard/account"],
   ];

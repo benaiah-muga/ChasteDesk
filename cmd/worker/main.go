@@ -13,6 +13,7 @@ import (
 	"chastedesk/internal/analytics"
 	"chastedesk/internal/config"
 	"chastedesk/internal/db"
+	"chastedesk/internal/email"
 	"chastedesk/internal/ingest"
 	"chastedesk/internal/logging"
 	"chastedesk/internal/model"
@@ -77,6 +78,14 @@ func run() error {
 	jobs.Work(ctx, "analytics-rollup", 1, withAlerts("analytics-rollup", analytics.Handler(pool)))
 	names = append(names, "execute-action", "ai-respond", "analytics-rollup")
 	go sla.StartMonitor(ctx, pool, notifier, logger)
+	mailer := email.NewSender(email.SenderConfig{
+		Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername,
+		Password: cfg.SMTPPassword, From: cfg.SMTPFrom, TLS: cfg.SMTPTLS,
+	})
+	go email.StartDispatcher(ctx, db.NewRepo(pool), mailer, logger)
+	if mailer.Enabled() {
+		logger.Info("email delivery enabled", "from", mailer.From())
+	}
 	logger.Info("worker started", "queues", names)
 	<-ctx.Done()
 	logger.Info("worker stopped")

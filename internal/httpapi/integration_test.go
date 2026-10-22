@@ -37,11 +37,13 @@ func startTestApp(t *testing.T) *testApp {
 		t.Fatalf("migrate: %v", err)
 	}
 	cfg := config.Config{
-		Port:        0,
-		AppURL:      "https://127.0.0.1:4433",
-		DatabaseURL: dsn,
-		AppSecret:   strings.Repeat("s", 32),
-		LogLevel:    "error",
+		Port:                0,
+		AppURL:              "https://127.0.0.1:4433",
+		DatabaseURL:         dsn,
+		AppSecret:           strings.Repeat("s", 32),
+		LogLevel:            "error",
+		EmailInboundAddress: "support@chastedesk.test",
+		EmailInboundSecret:  "test-inbound-email-secret",
 	}
 	srv := httptest.NewServer(New(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), pool))
 	t.Cleanup(srv.Close)

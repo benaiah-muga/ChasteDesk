@@ -138,6 +138,18 @@ func (m *Metrics) Render(ctx context.Context, pool *pgxpool.Pool) string {
 		}
 		rows.Close()
 	}
+	if rows, err := pool.Query(queryCtx, `select status, count(*)::bigint from email_outbox group by status order by status`); err == nil {
+		builder.WriteString("# HELP chastedesk_email_outbox Email deliveries by status.\n")
+		builder.WriteString("# TYPE chastedesk_email_outbox gauge\n")
+		for rows.Next() {
+			var status string
+			var count int64
+			if err := rows.Scan(&status, &count); err == nil {
+				fmt.Fprintf(&builder, "chastedesk_email_outbox{status=%q} %d\n", status, count)
+			}
+		}
+		rows.Close()
+	}
 	if rows, err := pool.Query(queryCtx, `select coalesce(outcome, 'running'), count(*)::bigint from ai_runs group by outcome order by 1`); err == nil {
 		builder.WriteString("# HELP chastedesk_ai_runs AI runs by outcome.\n")
 		builder.WriteString("# TYPE chastedesk_ai_runs gauge\n")

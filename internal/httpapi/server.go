@@ -50,6 +50,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("POST /api/auth/sign-in/email", s.handleSignIn)
 	mux.HandleFunc("POST /api/auth/sign-out", s.handleSignOut)
 	mux.HandleFunc("POST /api/auth/two-factor/verify", s.handleTwoFactorVerify)
+	mux.HandleFunc("POST /api/email/inbound/postmark", s.handleEmailInbound)
 	mux.HandleFunc("GET /api/auth/get-session", s.handleGetSession)
 	mux.HandleFunc("GET /api/onboarding/status", s.handleOnboardingStatus)
 	mux.HandleFunc("POST /api/onboarding/complete", s.handleOnboardingComplete)
@@ -122,6 +123,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handle
 	mux.HandleFunc("DELETE /api/app/settings/api-keys/{id}", s.handleConsoleAPIKeyRevoke)
 	mux.HandleFunc("POST /api/app/settings/workspace", s.handleConsoleWorkspaceSave)
 	mux.HandleFunc("POST /api/app/settings/scim/tokens", s.handleConsoleSCIMTokenCreate)
+	mux.HandleFunc("POST /api/app/settings/email/test", s.handleConsoleEmailTest)
 	mux.HandleFunc("DELETE /api/app/settings/scim/tokens/{id}", s.handleConsoleSCIMTokenRevoke)
 
 	mux.HandleFunc("GET /scim/v2/ServiceProviderConfig", s.requireSCIM(s.handleSCIMServiceProviderConfig))
