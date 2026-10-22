@@ -69,6 +69,7 @@ try {
   assert((await composer.getAttribute("placeholder"))?.includes("reply"), "R did not select reply mode");
   await page.keyboard.press("Escape");
   await page.keyboard.press("n");
+  await page.waitForTimeout(50);
   assert((await composer.getAttribute("placeholder"))?.includes("internal note"), "N did not select internal note mode");
   assert(await composer.evaluate((element) => document.activeElement === element), "N did not focus the composer");
   await composer.fill("Console check draft");

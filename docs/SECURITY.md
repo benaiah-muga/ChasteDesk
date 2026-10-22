@@ -2,6 +2,10 @@
 
 ChasteDesk is a self-hosted product that stores customer conversations and provider credentials. This document describes the controls in the code, the assumptions an operator must hold, and the known gaps.
 
+## Two-factor authentication
+
+TOTP secrets are encrypted with AES-256-GCM derived from `APP_SECRET`. Recovery codes are stored as SHA-256 hashes and consumed once. Password sign-in returns a five-minute challenge instead of a session when 2FA is enabled. A challenge is single-use, rate limited, and locks after five failed code attempts. Enabling or disabling 2FA revokes other sessions for that user.
+
 ## Reporting
 
 Use a private GitHub security advisory on `benaiah-muga/ChasteDesk`. Do not open a public issue for an unpatched vulnerability. Include affected version, reproduction steps, and impact. This is an M1 preview, so fixes are best-effort.

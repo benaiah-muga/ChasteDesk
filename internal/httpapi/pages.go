@@ -168,6 +168,10 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if credErr == nil && auth.VerifyPassword(password, cred.PasswordHash) {
+		if record, recordErr := s.repo.TwoFactor(db.RepoCtx{Ctx: r.Context()}, cred.User.ID); recordErr == nil && record.Enabled {
+			renderPage(w, views.LoginPage("This account requires two-factor authentication. Use the console sign-in page."))
+			return
+		}
 		if err := s.startSession(w, r, cred.User.ID); err != nil {
 			s.respondError(w, r, err)
 			return

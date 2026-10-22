@@ -17,6 +17,8 @@ All notable changes to ChasteDesk. The format follows Keep a Changelog, and vers
 - Owner-only member administration: role changes, member removal, and session revocation, with last-owner protection and audit events.
 - Prometheus metrics, request correlation IDs, structured request timing logs, and signed alert webhooks for HTTP 5xx responses and failed background jobs.
 - Configurable SLA policies by priority, due dates on tickets, breach filters and summaries, and worker-driven signed breach alerts.
+- Optional TOTP two-factor authentication with QR setup, one-time recovery codes, challenge-based sign-in, and audited enable/disable flows.
+- Owner member administration, SLA page, and two-factor controls now appear in the settings and account surfaces.
 - The supplied ChasteDesk brand mark is now the in-app logo, browser favicon, and Apple touch icon. The supplied banner is the repository hero.
 - The README now features only the banner and the supplied inbox screenshot; the rest of the product captures live in the docs screenshot gallery.
 - A prominent brown topbar clock and a fully sticky settings rail that keeps the Secrets note in place.

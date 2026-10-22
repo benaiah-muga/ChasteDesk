@@ -20,7 +20,7 @@ These are the production gaps that remain after the ticket operations and retrie
 1. **Observability and System Doctor.** Metrics export, request IDs, queue health, and operator webhook alerts are implemented. The System Doctor, dashboards, and span tracing remain.
 2. **Team administration.** Role changes, member deactivation, and session revocation for other users are implemented. SCIM and SSO remain.
 3. **SLA policies.** Response and resolution targets, due timestamps, breach visibility, filters, and webhook alerts are implemented. Dashboard templates and historical breach reporting remain.
-4. **Identity and access.** TOTP two-factor authentication, then SCIM provisioning and SSO.
+4. **Identity and access.** TOTP two-factor authentication is implemented. SCIM provisioning and SSO remain.
 5. **Email.** Transactional email for invitations and notifications, then an inbound email channel with signed webhook or IMAP ingestion.
 
 ## Next
@@ -38,7 +38,6 @@ These are the production gaps that remain after the ticket operations and retrie
 - Customer merge and data subject export or erasure
 
 ### Team and access
-- Two-factor authentication
 - SSO via SAML and OIDC
 - SCIM provisioning
 - Member role changes, deactivation, and session revocation

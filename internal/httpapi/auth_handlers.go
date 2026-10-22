@@ -138,12 +138,27 @@ func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
 		writeErrorBody(w, http.StatusUnauthorized, "unauthorized", "invalid email or password")
 		return
 	}
+	twoFactor, twoFactorErr := s.repo.TwoFactor(db.RepoCtx{Ctx: r.Context()}, cred.User.ID)
+	if twoFactorErr != nil && !errors.Is(twoFactorErr, db.ErrNotFound) {
+		s.respondError(w, r, twoFactorErr)
+		return
+	}
+	if twoFactorErr == nil && twoFactor.Enabled {
+		challengeID, err := s.repo.CreateLoginChallenge(db.RepoCtx{Ctx: r.Context()}, cred.User.ID, 5*time.Minute)
+		if err != nil {
+			s.respondError(w, r, err)
+			return
+		}
+		s.auditAuthEvent(r, cred.User.ID, "auth.2fa_challenge", "user")
+		writeData(w, http.StatusOK, map[string]any{"twoFactorRequired": true, "challengeToken": challengeID})
+		return
+	}
 	if err := s.startSession(w, r, cred.User.ID); err != nil {
 		s.respondError(w, r, err)
 		return
 	}
 	s.auditAuthEvent(r, cred.User.ID, "auth.login", "session")
-	writeJSON(w, http.StatusOK, map[string]any{"user": s.sessionPayloadForUser(r.Context(), cred.User.ID, cred.User.Name, cred.User.Email)})
+	writeData(w, http.StatusOK, map[string]any{"user": s.sessionPayloadForUser(r.Context(), cred.User.ID, cred.User.Name, cred.User.Email)})
 }
 
 func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request) {

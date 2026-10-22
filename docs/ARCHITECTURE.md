@@ -54,6 +54,7 @@ Core tables:
 | Table | Role |
 | --- | --- |
 | `organization`, `member`, `user`, `account`, `session` | Single-organization auth and membership |
+| `user_two_factor`, `login_challenges` | Encrypted TOTP secrets, recovery-code hashes, and short-lived sign-in challenges |
 | `invitation` | One-time invite links with role and expiry |
 | `customers` | Customer profile and attributes, unique by lowercased email per organization |
 | `conversations` | Channel, status, human ticket number, priority, tags, snooze, SLA due dates, triage, handoff package, response and resolution timestamps |
@@ -79,6 +80,8 @@ Core tables:
 ## Authentication and authorization
 
 Passwords are hashed with Argon2id (64 MiB, 3 iterations, 2 lanes). Sessions are random 32-byte tokens stored as SHA-256 hashes in `session`, sent in an `HttpOnly`, `SameSite=Lax` cookie. The cookie is `Secure` when `APP_URL` starts with `https://`.
+
+Optional TOTP two-factor authentication adds a second step to password sign-in. The shared secret is encrypted with AES-256-GCM using a key derived from `APP_SECRET`. Recovery codes are stored as SHA-256 hashes and removed when used. A correct password starts a five-minute, single-use `login_challenges` row instead of a session; the challenge is consumed only after a valid authenticator or recovery code. Failed attempts are counted and rate limited, and enabling or disabling 2FA revokes other sessions. The legacy form login path refuses to create a session for a 2FA-enabled account.
 
 Capabilities are defined in `internal/auth/rbac.go`:
 

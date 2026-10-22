@@ -2,7 +2,6 @@
 
 <img src="docs/assets/chastedesk-banner.png" alt="ChasteDesk, AI customer support platform" width="100%" />
 
-# ChasteDesk
 
 **The self-hostable AI support desk that shows its work.**
 
@@ -52,6 +51,7 @@ Most AI support tools ask you to trust a black box. ChasteDesk takes the opposit
 - Global approvals page, customers directory, knowledge health, analytics, and an append-only audit log.
 - Invite teammates with a one-time link and role-based access for owner, admin, and agent.
 - Keyboard command palette, a visible dark-mode switch, a live topbar clock, and responsive layouts from 320 px up.
+- Optional TOTP two-factor authentication with recovery codes, authenticated setup, and challenge-based sign-in.
 
 ### Channels and operations
 - Embeddable vanilla-JS widget with Shadow DOM isolation, streaming replies, history restore, cross-origin CORS, and themed styling.

@@ -481,9 +481,13 @@ func (s *Server) handleConsoleAccount(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	enabled := false
+	if record, err := s.repo.TwoFactor(db.RepoCtx{Ctx: r.Context()}, sess.UserID); err == nil {
+		enabled = record.Enabled
+	}
 	writeData(w, http.StatusOK, map[string]any{
 		"id": sess.UserID, "name": sess.Name, "email": sess.Email, "role": string(sess.Role),
-		"initial": consoleInitial(sess.Name),
+		"initial": consoleInitial(sess.Name), "twoFactorEnabled": enabled,
 	})
 }
 

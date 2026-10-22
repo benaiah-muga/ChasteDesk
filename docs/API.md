@@ -40,6 +40,7 @@ Relevant endpoints:
 | `POST` | `/api/auth/sign-in/email` | Sign in and set the session cookie |
 | `POST` | `/api/auth/sign-up/email` | Create a credential account. Organization membership comes from bootstrap or an invitation. |
 | `POST` | `/api/auth/sign-out` | Revoke the current session |
+| `POST` | `/api/auth/two-factor/verify` | Complete a two-factor sign-in challenge with an authenticator or recovery code |
 | `GET` | `/api/auth/get-session` | Return the current user and session |
 | `POST` | `/api/bootstrap` | Create the first organization and owner. Returns 409 after the first call |
 
@@ -218,6 +219,9 @@ These endpoints feed the React console. They aggregate data, include console-spe
 | `DELETE` | `/api/app/settings/members/{id}` | organization admin | Remove a member and revoke their sessions |
 | `POST` | `/api/app/settings/members/{id}/revoke-sessions` | organization admin | Revoke every session for a member |
 | `POST` | `/api/app/settings/account` | inbox | Update the current profile or password |
+| `POST` | `/api/app/account/two-factor/setup` | inbox | Generate an authenticator secret and otpauth URI |
+| `POST` | `/api/app/account/two-factor/enable` | inbox | Confirm a TOTP code and return one-time recovery codes |
+| `POST` | `/api/app/account/two-factor/disable` | inbox | Disable two-factor authentication with a password and code |
 | `POST` | `/api/app/settings/invitations` | settings write | Create a single-use invitation |
 | `DELETE` | `/api/app/settings/invitations/{id}` | settings write | Revoke an invitation |
 | `GET` | `/api/app/account` | inbox | Current account profile |

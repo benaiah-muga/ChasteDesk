@@ -394,6 +394,18 @@ export interface AccountResponse {
   email: string;
   role: Role;
   initial: string;
+  twoFactorEnabled: boolean;
+}
+
+export interface LoginResponse {
+  user?: SessionUser;
+  twoFactorRequired?: boolean;
+  challengeToken?: string;
+}
+
+export interface TwoFactorSetupResponse {
+  secret: string;
+  otpauthUri: string;
 }
 
 

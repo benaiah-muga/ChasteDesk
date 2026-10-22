@@ -23,6 +23,8 @@ const required = [
   "docs/SCREENSHOTS.md",
   "docs/assets/chastedesk-banner.png",
   "docs/assets/inbox-feature.png",
+  "docs/assets/login-2fa.png",
+  "docs/assets/account-2fa.png",
   "docs/assets/sla.png",
   "internal/web/static/favicon-32.png",
   "docs/assets/overview.png",

@@ -16,6 +16,8 @@ import type {
   AccountResponse,
   CannedRepliesResponse,
   SLAPolicy,
+  LoginResponse,
+  TwoFactorSetupResponse,
 } from "./types";
 
 export class ApiError extends Error {
@@ -71,10 +73,26 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 export const api = {
   session: () => request<AppSession>("/api/app/session"),
   account: () => request<AccountResponse>("/api/app/account"),
+  setupTwoFactor: () => request<TwoFactorSetupResponse>("/api/app/account/two-factor/setup", { method: "POST" }),
+  enableTwoFactor: (code: string) =>
+    request<{ enabled: boolean; recoveryCodes: string[] }>("/api/app/account/two-factor/enable", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  disableTwoFactor: (currentPassword: string, code: string) =>
+    request<{ enabled: boolean }>("/api/app/account/two-factor/disable", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, code }),
+    }),
   setup: (body: { orgName: string; userName: string; email: string; password: string }) =>
     request<AppSession>("/api/app/setup", { method: "POST", body: JSON.stringify(body) }),
   login: (body: { email: string; password: string }) =>
-    request<{ user: unknown }>("/api/auth/sign-in/email", { method: "POST", body: JSON.stringify(body) }),
+    request<LoginResponse>("/api/auth/sign-in/email", { method: "POST", body: JSON.stringify(body) }),
+  verifyTwoFactor: (challengeToken: string, code: string) =>
+    request<LoginResponse>("/api/auth/two-factor/verify", {
+      method: "POST",
+      body: JSON.stringify({ challengeToken, code }),
+    }),
   logout: () => request<{ success: boolean }>("/api/auth/sign-out", { method: "POST" }),
   completeOnboarding: (complete = true) =>
     request<{ complete: boolean }>("/api/onboarding/complete", {

@@ -226,3 +226,8 @@ CHASTEDESK_FRESH_URL=http://127.0.0.1:3001 node scripts/ui-onboarding-check.mjs
 `apps/` and `packages/` contain the earlier TypeScript and Next.js implementation. They are frozen reference material during the Go migration and are not built or deployed. Do not edit them unless a task explicitly asks for it.
 
 `docs/IMPLEMENTATION_PLAN.md` is a historical acceptance contract for that earlier stack. Current architecture lives in `docs/ARCHITECTURE.md`.
+
+
+## Authentication dependencies
+
+The account security screen renders authenticator setup QR codes with `qrcode.react`. It is the only added UI dependency for 2FA; the QR is an inline SVG and fetches nothing at runtime.

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"chastedesk/internal/auth"
 	"chastedesk/internal/id"
 )
 
@@ -552,6 +553,72 @@ func TestConsole(t *testing.T) {
 	accountGet := app.request("GET", "/api/app/account", nil, jar, "")
 	if accountGet.data(t)["name"] != "Amina Renamed" {
 		t.Fatalf("account name not saved: %s", accountGet.body)
+	}
+
+	if accountGet.data(t)["twoFactorEnabled"] != false {
+		t.Fatalf("two-factor must start disabled: %s", accountGet.body)
+	}
+	setup2FA := app.request("POST", "/api/app/account/two-factor/setup", nil, jar, "")
+	if setup2FA.status != http.StatusOK {
+		t.Fatalf("2FA setup: %d %s", setup2FA.status, setup2FA.body)
+	}
+	secret2FA, _ := setup2FA.data(t)["secret"].(string)
+	uri2FA, _ := setup2FA.data(t)["otpauthUri"].(string)
+	if secret2FA == "" || !strings.HasPrefix(uri2FA, "otpauth://totp/") {
+		t.Fatalf("2FA setup payload incomplete: %s", setup2FA.body)
+	}
+	code2FA, err := auth.TOTPCode(secret2FA, time.Now())
+	if err != nil {
+		t.Fatalf("generate TOTP: %v", err)
+	}
+	enable2FA := app.request("POST", "/api/app/account/two-factor/enable", map[string]any{"code": code2FA}, jar, "")
+	if enable2FA.status != http.StatusOK {
+		t.Fatalf("2FA enable: %d %s", enable2FA.status, enable2FA.body)
+	}
+	recoveryCodes, _ := enable2FA.data(t)["recoveryCodes"].([]any)
+	if len(recoveryCodes) != 10 {
+		t.Fatalf("recovery codes missing: %s", enable2FA.body)
+	}
+	accountWith2FA := app.request("GET", "/api/app/account", nil, jar, "")
+	if accountWith2FA.data(t)["twoFactorEnabled"] != true {
+		t.Fatalf("2FA not enabled in account: %s", accountWith2FA.body)
+	}
+
+	login2FA := app.request("POST", "/api/auth/sign-in/email", map[string]any{"email": "owner@console.test", "password": "password123"}, newTestJar(), "")
+	if login2FA.status != http.StatusOK || login2FA.data(t)["twoFactorRequired"] != true {
+		t.Fatalf("2FA sign-in challenge missing: %d %s", login2FA.status, login2FA.body)
+	}
+	challenge2FA, _ := login2FA.data(t)["challengeToken"].(string)
+	if challenge2FA == "" {
+		t.Fatalf("2FA challenge token missing: %s", login2FA.body)
+	}
+	codeNow, _ := auth.TOTPCode(secret2FA, time.Now())
+	loginJar := newTestJar()
+	verify2FA := app.request("POST", "/api/auth/two-factor/verify", map[string]any{"challengeToken": challenge2FA, "code": codeNow}, loginJar, "")
+	if verify2FA.status != http.StatusOK {
+		t.Fatalf("2FA verify: %d %s", verify2FA.status, verify2FA.body)
+	}
+	verifiedSession := app.request("GET", "/api/app/session", nil, loginJar, "")
+	if verifiedSession.data(t)["authenticated"] != true {
+		t.Fatalf("2FA session not authenticated: %s", verifiedSession.body)
+	}
+
+	recoveryChallengeJar := newTestJar()
+	recoveryLogin := app.request("POST", "/api/auth/sign-in/email", map[string]any{"email": "owner@console.test", "password": "password123"}, recoveryChallengeJar, "")
+	recoveryChallenge, _ := recoveryLogin.data(t)["challengeToken"].(string)
+	recoveryVerify := app.request("POST", "/api/auth/two-factor/verify", map[string]any{"challengeToken": recoveryChallenge, "code": recoveryCodes[0]}, recoveryChallengeJar, "")
+	if recoveryVerify.status != http.StatusOK {
+		t.Fatalf("2FA recovery code: %d %s", recoveryVerify.status, recoveryVerify.body)
+	}
+
+	codeForDisable, _ := auth.TOTPCode(secret2FA, time.Now())
+	disable2FA := app.request("POST", "/api/app/account/two-factor/disable", map[string]any{"currentPassword": "password123", "code": codeForDisable}, jar, "")
+	if disable2FA.status != http.StatusOK {
+		t.Fatalf("2FA disable: %d %s", disable2FA.status, disable2FA.body)
+	}
+	accountWithout2FA := app.request("GET", "/api/app/account", nil, jar, "")
+	if accountWithout2FA.data(t)["twoFactorEnabled"] != false {
+		t.Fatalf("2FA remained enabled: %s", accountWithout2FA.body)
 	}
 
 	invite := app.request("POST", "/api/app/settings/invitations", map[string]any{"email": "robin@console.test", "role": "agent"}, jar, "")

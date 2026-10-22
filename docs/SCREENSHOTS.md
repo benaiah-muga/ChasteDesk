@@ -46,6 +46,10 @@ The README features the banner and the inbox screenshot. This page holds the res
 | --- | --- |
 | ![Single-column sign in on warm paper](assets/login.png) | ![Single-column sign in in dark mode](assets/login-dark.png) |
 
+| Two-factor challenge | Two-factor settings |
+| --- | --- |
+| ![Sign-in challenge asking for an authenticator code](assets/login-2fa.png) | ![Account security with two-factor enabled](assets/account-2fa.png) |
+
 ## Mobile
 
 | Overview | Inbox |
