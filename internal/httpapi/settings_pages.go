@@ -707,12 +707,12 @@ func (s *Server) handleSettingsInviteCreate(w http.ResponseWriter, r *http.Reque
 	}
 	ctx := db.WithOrg(r.Context(), sess.OrgID)
 	var exists bool
-	if err := s.pool.QueryRow(r.Context(), `select exists(select 1 from "user" where lower(email) = lower($1))`, email).Scan(&exists); err != nil {
+	if err := s.pool.QueryRow(r.Context(), `select exists(select 1 from "user" u join account a on a.user_id = u.id and a.provider_id = 'credential' where lower(u.email) = lower($1))`, email).Scan(&exists); err != nil {
 		s.respondError(w, r, err)
 		return
 	}
 	if exists {
-		s.renderPageError(w, r, http.StatusConflict, "Already registered", "That email already has an account on this installation. Members share this single organization automatically.")
+		s.renderPageError(w, r, http.StatusConflict, "Already registered", "That email already has a sign-in account on this installation. Members share this single organization automatically.")
 		return
 	}
 	invitationID, err := s.repo.CreateInvitation(ctx, email, role, sess.UserID, time.Now().Add(7*24*time.Hour))

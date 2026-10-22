@@ -329,6 +329,7 @@ export interface SettingsResponse {
   canManage: boolean;
   canAdmin: boolean;
   slaPolicies: SLAPolicy[];
+  scim: SCIMSettings;
   providers: {
     id: string;
     providerId: string;
@@ -427,4 +428,17 @@ export interface SLAPolicy {
   firstResponseMinutes: number;
   resolutionMinutes: number;
   enabled: boolean;
+}
+
+export interface SCIMToken {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt?: string | null;
+}
+
+export interface SCIMSettings {
+  baseUrl: string;
+  tokens: SCIMToken[];
+  canManage: boolean;
 }

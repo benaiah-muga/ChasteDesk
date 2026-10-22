@@ -55,6 +55,7 @@ Core tables:
 | --- | --- |
 | `organization`, `member`, `user`, `account`, `session` | Single-organization auth and membership |
 | `user_two_factor`, `login_challenges` | Encrypted TOTP secrets, recovery-code hashes, and short-lived sign-in challenges |
+| `scim_tokens`, `scim_users` | Hashed organization-scoped SCIM bearer tokens and provisioned user mappings |
 | `invitation` | One-time invite links with role and expiry |
 | `customers` | Customer profile and attributes, unique by lowercased email per organization |
 | `conversations` | Channel, status, human ticket number, priority, tags, snooze, SLA due dates, triage, handoff package, response and resolution timestamps |

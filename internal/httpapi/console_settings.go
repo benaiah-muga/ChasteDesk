@@ -96,6 +96,17 @@ func (s *Server) handleConsoleSettings(w http.ResponseWriter, r *http.Request) {
 			slaPolicies = append(slaPolicies, slaPolicyPayload(policy))
 		}
 	}
+	scimTokens := []map[string]any{}
+	canManageSCIM := auth.Can(sess.Role, auth.CapOrgAdmin)
+	if canManageSCIM {
+		if rows, err := s.repo.ListSCIMTokens(db.WithOrg(r.Context(), sess.OrgID)); err == nil {
+			for _, token := range rows {
+				scimTokens = append(scimTokens, map[string]any{
+					"id": token.ID, "name": token.Name, "createdAt": token.CreatedAt, "lastUsedAt": token.LastUsedAt,
+				})
+			}
+		}
+	}
 	writeData(w, http.StatusOK, map[string]any{
 		"org":             map[string]any{"id": sess.OrgID, "name": view.OrgName},
 		"user":            map[string]any{"id": sess.UserID, "name": view.AccountName, "email": view.CurrentUserEmail, "role": view.CurrentRole},
@@ -126,6 +137,9 @@ func (s *Server) handleConsoleSettings(w http.ResponseWriter, r *http.Request) {
 		"members":     members,
 		"invitations": invitations,
 		"slaPolicies": slaPolicies,
+		"scim": map[string]any{
+			"baseUrl": s.cfg.AppURL + "/scim/v2", "tokens": scimTokens, "canManage": canManageSCIM,
+		},
 	})
 }
 
@@ -565,12 +579,12 @@ func (s *Server) handleConsoleInviteCreate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	var exists bool
-	if err := s.pool.QueryRow(r.Context(), `select exists(select 1 from "user" where lower(email) = lower($1))`, body.Email).Scan(&exists); err != nil {
+	if err := s.pool.QueryRow(r.Context(), `select exists(select 1 from "user" u join account a on a.user_id = u.id and a.provider_id = 'credential' where lower(u.email) = lower($1))`, body.Email).Scan(&exists); err != nil {
 		s.respondError(w, r, err)
 		return
 	}
 	if exists {
-		writeErrorBody(w, http.StatusConflict, "conflict", "That email already has an account on this installation.")
+		writeErrorBody(w, http.StatusConflict, "conflict", "That email already has a sign-in account on this installation.")
 		return
 	}
 	invitationID, err := s.repo.CreateInvitation(db.WithOrg(r.Context(), sess.OrgID), body.Email, body.Role, sess.UserID, time.Now().Add(7*24*time.Hour))

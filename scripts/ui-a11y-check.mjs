@@ -68,6 +68,7 @@ try {
     ["knowledge", "/dashboard/knowledge"],
     ["settings", "/dashboard/settings/agent"],
     ["sla", "/dashboard/settings/sla"],
+    ["scim", "/dashboard/settings/provisioning"],
     ["replies", "/dashboard/replies"],
     ["account", "/dashboard/account"],
   ];

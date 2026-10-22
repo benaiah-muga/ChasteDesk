@@ -26,6 +26,7 @@ const pages = [
   ["analytics", "/dashboard/analytics"],
   ["settings", "/dashboard/settings/providers"],
   ["sla", "/dashboard/settings/sla"],
+  ["scim", "/dashboard/settings/provisioning"],
   ["replies", "/dashboard/replies"],
 ];
 

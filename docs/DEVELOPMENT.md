@@ -231,3 +231,8 @@ CHASTEDESK_FRESH_URL=http://127.0.0.1:3001 node scripts/ui-onboarding-check.mjs
 ## Authentication dependencies
 
 The account security screen renders authenticator setup QR codes with `qrcode.react`. It is the only added UI dependency for 2FA; the QR is an inline SVG and fetches nothing at runtime.
+
+
+## SCIM
+
+SCIM 2.0 user endpoints live under `/scim/v2` and authenticate with organization-scoped bearer tokens, not dashboard sessions. Token management is owner-only under Settings, Provisioning. The implementation supports Users plus service discovery, with basic `userName` and `externalId` filters.

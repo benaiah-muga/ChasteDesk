@@ -98,21 +98,40 @@ func (r *Repo) AcceptInvitation(ctx context.Context, invitationID, name, passwor
 	if status != "pending" || expiresAt.Before(time.Now()) {
 		return "", "", ErrNotFound
 	}
-	var exists bool
-	if err := tx.QueryRow(ctx, `select exists(select 1 from "user" where lower(email) = lower($1))`, email).Scan(&exists); err != nil {
-		return "", "", err
-	}
-	if exists {
-		return "", "", ErrEmailExists
-	}
-	userID := id.UUID()
-	if err := r.CreateUser(ctx, tx, User{ID: userID, Name: name, Email: email}); err != nil {
-		return "", "", err
+	var existingUserID string
+	lookupErr := tx.QueryRow(ctx, `select id from "user" where lower(email) = lower($1)`, email).Scan(&existingUserID)
+	userID := existingUserID
+	if errors.Is(lookupErr, pgx.ErrNoRows) {
+		userID = id.UUID()
+		if err := r.CreateUser(ctx, tx, User{ID: userID, Name: name, Email: email}); err != nil {
+			return "", "", err
+		}
+	} else if lookupErr != nil {
+		return "", "", lookupErr
+	} else {
+		var hasCredential bool
+		if err := tx.QueryRow(ctx, `select exists(select 1 from account where user_id = $1 and provider_id = 'credential')`, userID).Scan(&hasCredential); err != nil {
+			return "", "", err
+		}
+		if hasCredential {
+			return "", "", ErrEmailExists
+		}
+		if _, err := tx.Exec(ctx, `update "user" set name = $2, updated_at = now() where id = $1`, userID, name); err != nil {
+			return "", "", err
+		}
 	}
 	if err := r.CreateCredentialAccount(ctx, tx, id.UUID(), userID, passwordHash); err != nil {
 		return "", "", err
 	}
-	if _, err := tx.Exec(ctx, `insert into member (id, organization_id, user_id, role) values ($1, $2, $3, $4)`,
+	var hasMembership bool
+	if err := tx.QueryRow(ctx, `select exists(select 1 from member where organization_id = $1 and user_id = $2)`, orgID, userID).Scan(&hasMembership); err != nil {
+		return "", "", err
+	}
+	if hasMembership {
+		if _, err := tx.Exec(ctx, `update member set role = $3 where organization_id = $1 and user_id = $2`, orgID, userID, role); err != nil {
+			return "", "", err
+		}
+	} else if _, err := tx.Exec(ctx, `insert into member (id, organization_id, user_id, role) values ($1, $2, $3, $4)`,
 		id.UUID(), orgID, userID, role); err != nil {
 		return "", "", err
 	}

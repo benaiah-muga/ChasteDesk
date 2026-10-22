@@ -35,6 +35,7 @@ ChasteDesk: AI-native, self-hostable customer support platform. AGPL-3.0-only.
 - React console for overview, inbox, approvals, customers, quick replies, knowledge, analytics, audit, settings, support agent policy, onboarding, account, and invitations.
 - Ticket operations: human ticket numbers, priority, tags, snooze, SLA policies and breach state, close and reopen, bulk actions, filters, and organization-scoped quick replies.
 - Optional TOTP two-factor authentication with recovery codes, challenge-based sign-in, and account security controls.
+- SCIM 2.0 user provisioning with owner-managed bearer tokens, activation invitations, lifecycle updates, and session revocation.
 - Legacy templ pages at `/legacy/...` for compatibility tests and migration fallback.
 - Widget API with token and origin checks, REST channel with `cd_` keys, dashboard SSE, and health probes.
 - Compose deployment through `Dockerfile.web`, `Dockerfile.worker`, and `docker-compose.yml`.

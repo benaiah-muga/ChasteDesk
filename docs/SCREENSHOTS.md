@@ -32,13 +32,17 @@ The README features the banner and the inbox screenshot. This page holds the res
 | --- | --- |
 | ![Shared quick replies with create and edit controls](assets/quick-replies.png) | ![SLA targets by priority](assets/sla.png) |
 
-| Settings | Support agent |
+| SCIM provisioning | Settings |
 | --- | --- |
-| ![AI providers and settings navigation](assets/settings.png) | ![Support agent policy, budgets, and tools](assets/agent.png) |
+| ![SCIM token and endpoint configuration](assets/scim.png) | ![AI providers and settings navigation](assets/settings.png) |
 
-| Chat widget | Account |
+| Support agent | Chat widget |
 | --- | --- |
-| ![Widget appearance, origins, and embed snippet](assets/widget.png) | ![Account profile and password controls](assets/account.png) |
+| ![Support agent policy, budgets, and tools](assets/agent.png) | ![Widget appearance, origins, and embed snippet](assets/widget.png) |
+
+| Account |
+| --- |
+| ![Account profile and security controls](assets/account.png) |
 
 ## Authentication
 

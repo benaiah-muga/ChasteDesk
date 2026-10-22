@@ -162,6 +162,10 @@ try {
   await page.getByRole("heading", { name: "SLA policies" }).waitFor();
   await page.getByText("Targets by priority").waitFor();
 
+  await page.goto(baseURL + "/dashboard/settings/provisioning", { waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "SCIM provisioning" }).waitFor();
+  await page.getByText("SCIM 2.0 endpoint").waitFor();
+
   await page.goto(baseURL + "/dashboard/customers", { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Customers" }).waitFor();
   await page.locator('a[href^="/dashboard/customers/"]').first().click();

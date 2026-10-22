@@ -282,3 +282,21 @@ The legacy server-rendered pages remain under `/legacy/...` for compatibility. T
 ## Versioning
 
 The API is an M1 preview. Paths under `/api/v1/` are the intended stable surface. Dashboard endpoints may change with the UI. Breaking changes are recorded in `CHANGELOG.md`.
+
+
+## SCIM 2.0
+
+SCIM is organization-scoped through a bearer token created by an owner under Settings, Provisioning. The base path is `/scim/v2`. Only Users are implemented; Groups are not.
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| `GET` | `/scim/v2/ServiceProviderConfig` | Capability discovery |
+| `GET` | `/scim/v2/ResourceTypes` | User resource type |
+| `GET` | `/scim/v2/Users` | List users, with `startIndex`, `count`, and `userName eq` or `externalId eq` filters |
+| `POST` | `/scim/v2/Users` | Create a provisioned user and activation invitation |
+| `GET` | `/scim/v2/Users/{id}` | Read one user |
+| `PUT` | `/scim/v2/Users/{id}` | Replace profile and active state |
+| `PATCH` | `/scim/v2/Users/{id}` | Apply `active`, `userName`, `name`, `displayName`, `externalId`, `emails`, or `roles` operations |
+| `DELETE` | `/scim/v2/Users/{id}` | Deactivate the user, remove membership, and revoke sessions |
+
+The `roles` attribute accepts `owner`, `admin`, or `agent`; it defaults to `agent`. A SCIM-created user gets a pending activation invitation. The owner can copy that link from Workspace until transactional email delivery sends it automatically. Deactivating the last owner is rejected.

@@ -1,1 +1,0 @@
-import{r as o}from"./vendor-DPgEm0Ho.js";function c(e,t=250){const[u,n]=o.useState(e);return o.useEffect(()=>{const r=window.setTimeout(()=>n(e),t);return()=>window.clearTimeout(r)},[e,t]),u}export{c as u};

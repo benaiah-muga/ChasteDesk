@@ -18,6 +18,7 @@ This page is deliberately candid. Use it to decide whether the current build fit
 - Shared quick replies with create, edit, delete, and composer insertion.
 - Owner-only member role changes, member removal, and session revocation, with last-owner protection and audit events.
 - Optional TOTP two-factor authentication with encrypted secrets, one-time recovery codes, challenge-based sign-in, and session revocation on enable or disable.
+- SCIM 2.0 user provisioning with organization-scoped bearer tokens, activation invitations, role mapping, deactivation, and session revocation.
 - Knowledge health, analytics, audit inspection, customer profiles, workspace settings, invitations, account security, and CSV audit export.
 - Dark mode, a single-panel sign-in, a live topbar clock, responsive layouts from 320 px, and WCAG A/AA checks on primary screens.
 - Health and readiness probes, Docker Compose, migrations, backup guidance, structured logs, and local-asset-only console builds.
@@ -40,7 +41,7 @@ This page is deliberately candid. Use it to decide whether the current build fit
 ## Still missing for full production parity
 
 - **Email channel and transactional email.** Inbound email, outbound replies, and emailed invitations are not implemented. Widget and REST are the supported channels.
-- **SSO and provisioning.** Password sessions and TOTP two-factor authentication are available. OIDC, SAML, and SCIM are roadmap items.
+- **SSO.** Password sessions, TOTP two-factor authentication, and SCIM user provisioning are available. OIDC and SAML are roadmap items. SCIM Groups are not implemented; role changes use the user `roles` attribute.
 - **Data subject tooling.** There is no customer export, erasure workflow, or scheduled retention purge.
 - **Observability.** Metrics, request correlation, and webhook alerts exist. Distributed span tracing, bundled dashboards, and alert rule templates do not.
 - **Multi-organization hosting.** The data model is org-scoped, but the product is a single-organization install.

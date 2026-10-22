@@ -73,6 +73,10 @@ SLA policies are configured under **Settings → SLA policies**. Each priority h
 
 The worker scans active tickets every minute. New first-response or resolution breaches are recorded in `sla_breaches` and sent to `ALERT_WEBHOOK_URL` when configured. The inbox supports `?sla=breached`, and the overview attention queue shows the current breach count. Breach records are internal audit data; the console does not delete them when a ticket is resolved.
 
+## SCIM sync
+
+SCIM bearer tokens are created under **Settings, Provisioning** and shown once. If a provider reports 401, check that the token was copied whole and has not been revoked. If a provisioned user cannot sign in, copy their pending activation invitation from **Workspace**. Deactivating a user through SCIM removes membership and revokes sessions. The last owner cannot be deactivated or demoted through SCIM.
+
 ## Queue stuck or backing up
 
 Inspect jobs:

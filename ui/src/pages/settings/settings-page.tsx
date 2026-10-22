@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, useOutletContext, useParams, Navigate } from "react-router-dom";
-import { BookOpen, Bot, Clock3, KeyRound, Palette, ServerCog, UserRound, Users } from "lucide-react";
+import { BookOpen, Bot, Cable, Clock3, KeyRound, Palette, ServerCog, UserRound, Users } from "lucide-react";
 import type { AppSession } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -14,6 +14,7 @@ import { WidgetSection } from "./widget-section";
 import { APIKeysSection } from "./api-keys-section";
 import { WorkspaceSection } from "./workspace-section";
 import { SLASection } from "./sla-section";
+import { SCIMSection } from "./scim-section";
 
 const sections = [
   { key: "providers", label: "AI providers", description: "Models and keys", icon: ServerCog },
@@ -22,6 +23,7 @@ const sections = [
   { key: "api-keys", label: "API keys", description: "REST channel access", icon: KeyRound },
   { key: "workspace", label: "Workspace", description: "People and invitations", icon: Users },
   { key: "sla", label: "SLA policies", description: "Targets and breach alerts", icon: Clock3 },
+  { key: "provisioning", label: "Provisioning", description: "SCIM directory sync", icon: Cable },
 ];
 export const settingsKeys = sections.map((section) => section.key);
 
@@ -105,6 +107,7 @@ export function SettingsPage() {
           {section === "api-keys" ? <APIKeysSection settings={settings} /> : null}
           {section === "workspace" ? <WorkspaceSection settings={settings} /> : null}
           {section === "sla" ? <SLASection settings={settings} /> : null}
+          {section === "provisioning" ? <SCIMSection settings={settings} /> : null}
         </div>
       </div>
     </div>

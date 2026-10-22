@@ -49,6 +49,7 @@ await capture("approvals", "/dashboard/approvals");
 await capture("audit", "/dashboard/audit");
 await capture("settings", "/dashboard/settings/providers");
 await capture("sla", "/dashboard/settings/sla");
+await capture("scim", "/dashboard/settings/provisioning");
 await capture("agent", "/dashboard/settings/agent");
 await capture("widget", "/dashboard/settings/widget");
 await capture("account", "/dashboard/account");

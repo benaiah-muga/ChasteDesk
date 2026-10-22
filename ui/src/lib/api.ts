@@ -223,6 +223,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ policies }),
     }),
+  createSCIMToken: (name: string) =>
+    request<{ id: string; name: string; token: string; baseUrl: string }>("/api/app/settings/scim/tokens", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  revokeSCIMToken: (id: string) =>
+    request<{ revoked: boolean }>(`/api/app/settings/scim/tokens/${id}`, { method: "DELETE" }),
   updateMemberRole: (id: string, role: string) =>
     request<{ updated: boolean; role: string; sessionsRevoked: number }>(`/api/app/settings/members/${id}`, {
       method: "PATCH",
