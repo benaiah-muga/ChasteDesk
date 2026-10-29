@@ -658,7 +658,11 @@ func (s *Server) handleSCIMDeleteUser(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, r, err)
 		return
 	}
-	if existing.Active && existing.Role == "owner" {
+	currentRole := existing.Role
+	if actual, err := s.repo.MemberRole(ctx, existing.UserID); err == nil {
+		currentRole = actual
+	}
+	if existing.Active && currentRole == "owner" {
 		owners, err := s.repo.CountOwners(ctx)
 		if err != nil {
 			s.respondError(w, r, err)
@@ -687,7 +691,11 @@ func (s *Server) handleSCIMDeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) scimGuardLastOwner(ctx db.RepoCtx, existing db.SCIMUserRow, role string, active bool) error {
-	if existing.Role == "owner" && (role != "owner" || !active) {
+	currentRole := existing.Role
+	if actual, err := s.repo.MemberRole(ctx, existing.UserID); err == nil {
+		currentRole = actual
+	}
+	if currentRole == "owner" && (role != "owner" || !active) {
 		owners, err := s.repo.CountOwners(ctx)
 		if err != nil {
 			return err

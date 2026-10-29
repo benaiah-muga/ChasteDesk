@@ -140,7 +140,7 @@ function NavRow({
               className={cn(
                 "ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold leading-none",
                 item.attention
-                  ? "bg-accent text-[var(--color-on-accent)]"
+                  ? "bg-[var(--color-accent-strong)] text-[var(--color-on-accent)]"
                   : "bg-[var(--color-sidebar-3)] text-[var(--color-sidebar-muted)]",
               )}
             >

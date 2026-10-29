@@ -155,7 +155,7 @@ export function AgentSection({ settings }: { settings: SettingsResponse }) {
         <div className="grid gap-2 sm:grid-cols-2">
           {[
             { key: "public" as const, label: "Public knowledge", body: "Search public sources and quote them to customers.", checked: form.publicScope },
-            { key: "internal" as const, label: "Internal knowledge", body: "Use internal source material for context, but never quote it.", checked: form.internalScope },
+            { key: "internal" as const, label: "Internal knowledge", body: "Allow the AI to search internal sources. Citations can expose excerpts, so enable only for trusted desks.", checked: form.internalScope },
           ].map((scope) => (
             <label key={scope.key} className={cn("flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors", scope.checked ? "border-rule-strong bg-surface-2/65" : "border-rule bg-surface hover:border-rule-strong")}>
               <Checkbox checked={scope.checked} onCheckedChange={(value) => setForm((current) => ({ ...current, [scope.key === "public" ? "publicScope" : "internalScope"]: value === true }))} className="mt-0.5" aria-label={scope.label} />

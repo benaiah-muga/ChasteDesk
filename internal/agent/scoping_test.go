@@ -2,6 +2,8 @@
 package agent_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"chastedesk/internal/agent"
@@ -16,7 +18,7 @@ func TestToolScoping(t *testing.T) {
 	orgB := seedAgentScene(t, pool, fixturePolicy())
 
 	ctxA := agent.ToolCtx{RunContext: runContext(orgA), DryRun: true}
-	tools := agent.BuildBuiltinTools(pool, engine)
+	tools := agent.BuildBuiltinTools(pool, engine, []string{"public"})
 	find := func(id string) *agent.Tool {
 		t.Helper()
 		for i := range tools {
@@ -57,5 +59,39 @@ func TestToolScoping(t *testing.T) {
 		"select count(*)::int from messages where org_id = $1 and content like '%intrusion%'", orgB.OrgID)
 	if leaked != 0 {
 		t.Fatalf("cross-org note must not be written into org B")
+	}
+}
+
+func TestKnowledgeToolRespectsScopes(t *testing.T) {
+	pool := startAgentPool(t)
+	engine := retrieval.NewEngine(pool)
+	scene := seedAgentScene(t, pool, fixturePolicy())
+	seedChunkWithScope(t, pool, scene.OrgID, "internal", "Internal runbook secret escalation code.")
+	seedChunkWithScope(t, pool, scene.OrgID, "public", "Public invoice policy: send a copy on request.")
+	ctx := agent.ToolCtx{RunContext: runContext(scene), DryRun: true}
+	execute := func(scopes []string) string {
+		t.Helper()
+		tools := agent.BuildBuiltinTools(pool, engine, scopes)
+		for i := range tools {
+			if tools[i].Declaration.ID != "knowledge.search" {
+				continue
+			}
+			result, err := tools[i].Execute(ctx, map[string]any{"query": "escalation code invoice"})
+			if err != nil {
+				t.Fatalf("knowledge.search: %v", err)
+			}
+			encoded := fmt.Sprintf("%v", result.Data)
+			return encoded
+		}
+		t.Fatal("knowledge.search missing")
+		return ""
+	}
+	public := execute([]string{"public"})
+	if strings.Contains(public, "Internal runbook") {
+		t.Fatalf("public scope leaked internal knowledge: %s", public)
+	}
+	internal := execute([]string{"internal"})
+	if !strings.Contains(internal, "Internal runbook") {
+		t.Fatalf("internal scope did not search internal knowledge: %s", internal)
 	}
 }

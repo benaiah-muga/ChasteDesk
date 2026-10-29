@@ -4,9 +4,23 @@ package logging
 import (
 	"log/slog"
 	"os"
+	"strings"
 )
 
-func New(level string) *slog.Logger {
+type redactor struct {
+	secrets []string
+}
+
+func (r redactor) Redact(text string) string {
+	for _, secret := range r.secrets {
+		if secret != "" {
+			text = strings.ReplaceAll(text, secret, "[redacted]")
+		}
+	}
+	return text
+}
+
+func New(level string, secrets ...string) *slog.Logger {
 	var l slog.Level
 	switch level {
 	case "debug":
@@ -18,5 +32,15 @@ func New(level string) *slog.Logger {
 	default:
 		l = slog.LevelInfo
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: l}))
+	handler := slog.Handler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: l}))
+	nonEmpty := make([]string, 0, len(secrets))
+	for _, secret := range secrets {
+		if secret != "" {
+			nonEmpty = append(nonEmpty, secret)
+		}
+	}
+	if len(nonEmpty) > 0 {
+		handler = WithRedactor(handler, redactor{secrets: nonEmpty})
+	}
+	return slog.New(handler)
 }

@@ -56,6 +56,14 @@ func (s *Server) auditAuthEvent(r *http.Request, userID, eventType, targetType s
 }
 
 func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.AppEnv == "production" {
+		writeErrorBody(w, http.StatusForbidden, "sign_up_disabled", "Public sign-up is disabled. Ask an owner or admin for an invitation.")
+		return
+	}
+	if _, err := ratelimit.Enforce(r.Context(), s.pool, "signup:"+clientIP(r), 10, 900); err != nil {
+		s.respondError(w, r, err)
+		return
+	}
 	body, err := decodeBody[signUpBody](r)
 	if err != nil {
 		s.respondError(w, r, err)
@@ -66,6 +74,7 @@ func (s *Server) handleSignUp(w http.ResponseWriter, r *http.Request) {
 		writeErrorBody(w, http.StatusBadRequest, "bad_request", "name must be between 1 and 100 characters")
 		return
 	}
+	body.Email = strings.ToLower(strings.TrimSpace(body.Email))
 	if !validEmail(body.Email) {
 		writeErrorBody(w, http.StatusBadRequest, "bad_request", "invalid email address")
 		return

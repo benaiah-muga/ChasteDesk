@@ -21,6 +21,8 @@ const required = [
   "docs/ROADMAP.md",
   "docs/PRODUCTION_READINESS.md",
   "docs/SCREENSHOTS.md",
+  "docs/EMAIL_DELIVERY.md",
+  "docs/SECURITY_REVIEW_2026-10-29.md",
   "docs/assets/chastedesk-banner.png",
   "docs/assets/inbox-feature.png",
   "docs/assets/login-2fa.png",

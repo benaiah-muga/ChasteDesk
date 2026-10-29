@@ -39,7 +39,7 @@ Most AI support tools ask you to trust a black box. ChasteDesk takes the opposit
 - Hybrid retrieval over Postgres full-text search plus pgvector, fused with reciprocal rank fusion.
 - Structure-aware chunking with heading breadcrumbs and a 500 to 800 token target.
 - Citation enforcement in the agent loop: a missing or invented citation escalates the conversation.
-- Knowledge scopes: public sources can be quoted to customers, internal sources can inform the agent but are never quoted.
+- Knowledge scopes: public and internal retrieval are separately controlled. Internal scope can inform answers and may expose excerpts in citations, so enable it only for trusted operators.
 - Works with OpenAI, Anthropic, Google AI, DeepSeek, Ollama, and any OpenAI-compatible endpoint.
 - Degrades honestly with zero providers: the desk still works and routes every conversation to a human.
 
@@ -248,6 +248,7 @@ The historical Next.js implementation under `apps/` and `packages/` is frozen re
 - [Security](docs/SECURITY.md)
 - [Development](docs/DEVELOPMENT.md)
 - [Production readiness](docs/PRODUCTION_READINESS.md)
+- [Email delivery runbook](docs/EMAIL_DELIVERY.md)
 - [Screenshot gallery](docs/SCREENSHOTS.md)
 - [Design system](design.md)
 - [Roadmap](docs/ROADMAP.md)

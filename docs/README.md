@@ -13,6 +13,8 @@ Start with the README for the product overview and quickstart. These documents g
 | [Development](DEVELOPMENT.md) | You are changing the code, templates, or tests. |
 | [Roadmap](ROADMAP.md) | You want to know what is coming and what is not. |
 | [Screenshot gallery](SCREENSHOTS.md) | You want to see the product surfaces without running the app. |
+| [Email delivery](EMAIL_DELIVERY.md) | You are configuring SMTP, Postmark inbound mail, SPF, DKIM, or DMARC. |
+| [Security review](SECURITY_REVIEW_2026-10-29.md) | You are reviewing residual risk before a pilot. |
 | [Design system](../design.md) | You are building UI inside the console. |
 | [Changelog](../CHANGELOG.md) | You are upgrading from an earlier version. |
 

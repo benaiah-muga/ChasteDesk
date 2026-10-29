@@ -144,6 +144,8 @@ Migrations run in the `migrate` service before web and worker start. The web pro
 
 ## Email
 
+See [EMAIL_DELIVERY.md](EMAIL_DELIVERY.md) for the full SMTP, Postmark inbound, SPF, DKIM, and DMARC runbook.
+
 Outbound delivery uses SMTP. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, and `SMTP_TLS` (`starttls`, `tls`, or `none` only for a local relay). Use provider app passwords, not account passwords.
 
 Inbound delivery uses a Postmark-compatible webhook. Set `EMAIL_INBOUND_ADDRESS` to the support mailbox and a random `EMAIL_INBOUND_SECRET`. Configure the Postmark inbound webhook URL as `https://your-desk.example.com/api/email/inbound/postmark` with the secret in `Authorization: Bearer <secret>`. Send a test email and confirm it opens as an email ticket. Configure SPF, DKIM, and DMARC for the sending domain before production.

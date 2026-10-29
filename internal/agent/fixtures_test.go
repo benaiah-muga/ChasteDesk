@@ -93,11 +93,15 @@ func seedAgentScene(t *testing.T, pool *pgxpool.Pool, policy agent.AgentPolicy) 
 }
 
 func seedChunk(t *testing.T, pool *pgxpool.Pool, orgID, content string) string {
+	return seedChunkWithScope(t, pool, orgID, "public", content)
+}
+
+func seedChunkWithScope(t *testing.T, pool *pgxpool.Pool, orgID, scope, content string) string {
 	t.Helper()
 	ctx := context.Background()
 	sourceID := id.UUID()
 	if _, err := pool.Exec(ctx, `insert into knowledge_sources (id, org_id, type, name, scope, status, version)
-		values ($1, $2, 'text', 'Help Docs', 'public', 'ready', 1)`, sourceID, orgID); err != nil {
+		values ($1, $2, 'text', 'Help Docs', $3, 'ready', 1)`, sourceID, orgID, scope); err != nil {
 		t.Fatalf("insert source: %v", err)
 	}
 	chunkID := id.UUID()

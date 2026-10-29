@@ -208,7 +208,7 @@ function AddSourceDialog({
                 <SelectTrigger className="mt-1.5" aria-label="Source scope"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="public">Public, can be quoted</SelectItem>
-                  <SelectItem value="internal">Internal, never quoted</SelectItem>
+                  <SelectItem value="internal">Internal, restricted</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -287,7 +287,7 @@ function SourceSheet({
                 <p className="mt-1.5 text-[12px] leading-5 text-muted-foreground">
                   {source.scope === "public"
                     ? "Customers can see this source in citations. The AI may quote it directly."
-                    : "The AI may use this source internally, but it will never quote it to a customer."}
+                    : "Internal sources are restricted to AI runs whose agent policy allows internal scope. Citations can expose excerpts."}
                 </p>
               </div>
               <div>
@@ -405,7 +405,7 @@ export function KnowledgePage() {
       <PageHeader
         eyebrow={<>Desk / Knowledge</>}
         title="Knowledge"
-        description="What the desk is allowed to know. Public sources can answer customers; internal-only sources are available to the agent but never quoted."
+        description="What the desk is allowed to know. Public sources can answer customers. Internal sources are available only when the agent policy explicitly enables internal scope."
         meta={
           <>
             <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full", counts.failed > 0 ? "bg-[var(--color-danger)]" : "bg-[var(--color-success)]")} />{counts.ready} of {counts.total} ready</span>

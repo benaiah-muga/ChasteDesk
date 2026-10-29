@@ -104,11 +104,13 @@ The product does not defend against a host-level compromise, a malicious operato
 
 ## Known gaps
 
-- No two-factor authentication.
-- No SSO, SAML, or SCIM in this build.
+- No SSO or SAML.
+- SCIM Groups are not implemented; role changes use the user `roles` attribute.
 - Single organization per installation.
-- No email delivery, so invitations are copyable links.
+- Email authentication (SPF, DKIM, DMARC) is enforced by the inbound provider and must be configured by the operator. The webhook rejects explicit `spf=fail`, `dkim=fail`, and `dmarc=fail` results, but a provider that omits `Authentication-Results` cannot be verified by the app.
+- Internal knowledge scope is technically enforced by retrieval and tools, but enabling it can expose excerpts in customer-facing citations. Keep internal scope disabled for public desks.
 - No per-tenant encryption keys. Every installation uses one `APP_SECRET`.
+- No bounce, complaint, or suppression management for outbound email.
 - No antivirus scanning for uploads. Parseable formats only.
 - No ANN vector index. This is a performance constraint, not a confidentiality one.
 - The console JSON API is stable enough for the UI but not yet versioned.

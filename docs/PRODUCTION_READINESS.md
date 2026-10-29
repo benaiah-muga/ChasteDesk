@@ -2,7 +2,7 @@
 
 ## Short answer
 
-ChasteDesk is ready for a careful, single-organization pilot on the widget and REST channels, run by a small support team that can operate TLS, backups, and a worker. It is not yet a drop-in replacement for an omni-channel enterprise helpdesk. Email ingestion, transactional email, SSO, two-factor authentication, and SLA automation are still missing.
+ChasteDesk is ready for a careful, single-organization pilot across widget, REST, and email channels, run by a small support team that can operate TLS, backups, DNS, and a worker. It is not yet a drop-in replacement for an omni-channel enterprise helpdesk. SSO, SCIM Groups, bounce management, and compliance reporting remain incomplete.
 
 This page is deliberately candid. Use it to decide whether the current build fits a deployment, not to infer a certification.
 
@@ -10,7 +10,7 @@ This page is deliberately candid. Use it to decide whether the current build fit
 
 - Single-organization, self-hosted deployment with a Go web process, worker, and Postgres 16 plus pgvector.
 - Cookie sessions, role checks on console routes, same-origin protection for unsafe requests, rate limits on login, widget, and API-key traffic, and append-only audit events.
-- AES-256-GCM provider-key storage, masked key responses, log redaction, SSRF-guarded ingestion, and a security header baseline.
+- AES-256-GCM provider-key storage, masked key responses, environment-secret log redaction, SSRF-guarded ingestion, and a security header baseline.
 - Cited AI answers, policy-controlled tools, approval decisions, handoff packages, and honest escalation when no provider or evidence is available.
 - OpenAI-compatible model routing, including DeepSeek, with wire-safe tool names. A live DeepSeek `deepseek-flash` smoke test produced a cited answer during this release.
 - Optional hybrid retrieval with local or hosted embeddings. A local Ollama `nomic-embed-text` run indexed 768-dimension vectors and produced a cited hybrid answer. The requested `embeddinggemma-2:270m-bf16-text` model requires a newer Ollama than the installed 0.32.5 release.
@@ -36,12 +36,12 @@ This page is deliberately candid. Use it to decide whether the current build fit
 6. Restrict network access to Postgres and the worker. Expose only the reverse proxy.
 7. Decide a retention policy for conversations, customer records, audit events, and uploaded knowledge.
 8. Review the security checklist in [Security](SECURITY.md), including proxy header trust and cookie settings.
-9. Monitor the process, queue depth, database size, and failed knowledge sources. There is no bundled metrics or tracing exporter yet.
-10. Tell operators that invitations are copy-link only. The product does not send email.
+9. Monitor the process, queue depth, database size, failed knowledge sources, and email outbox. Prometheus metrics are bundled; distributed tracing and dashboards are not.
+10. Configure SMTP, the inbound mailbox, Postmark-compatible webhook authentication, and SPF, DKIM, and DMARC before enabling email. Send a test email and an inbound test message.
 
 ## Still missing for full production parity
 
-- **Email channel and transactional email.** Inbound email, outbound replies, and emailed invitations are not implemented. Widget and REST are the supported channels.
+- **Email operations.** Email is implemented but depends on an external provider, DNS authentication, and a public webhook URL. Bounce, complaint, and suppression handling are not implemented. The webhook rejects explicit authentication failures, but provider-side DMARC enforcement remains required.
 - **SSO.** Password sessions, TOTP two-factor authentication, and SCIM user provisioning are available. OIDC and SAML are roadmap items. SCIM Groups are not implemented; role changes use the user `roles` attribute.
 - **Data subject tooling.** There is no customer export, erasure workflow, or scheduled retention purge.
 - **Observability.** Metrics, request correlation, and webhook alerts exist. Distributed span tracing, bundled dashboards, and alert rule templates do not.
@@ -54,8 +54,8 @@ This page is deliberately candid. Use it to decide whether the current build fit
 | --- | --- |
 | Internal pilot, one team, widget or REST, a named operator | Suitable with the checklist above. |
 | Privacy-sensitive self-hosted support with a small team | Suitable if backups, TLS, retention, and worker monitoring are in place. |
-| Public 24/7 support with email as the primary channel | Not yet. Use a pilot, or add an email integration first. |
-| Enterprise rollout with SSO, SCIM, SLA, and compliance reporting | Not yet. Several platform features are still roadmap work. |
+| Public 24/7 support with email as the primary channel | Pilot only until SPF, DKIM, DMARC, bounce handling, and 24/7 mailbox operations are proven. |
+| Enterprise rollout with SSO, SCIM, SLA, and compliance reporting | Not yet. SSO, SCIM Groups, retention tooling, and compliance reporting remain. |
 
 ## Operational acceptance checks
 

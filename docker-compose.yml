@@ -38,7 +38,7 @@ services:
     image: chastedesk-web:local
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "127.0.0.1:${PORT:-3000}:3000"
     environment:
       APP_ENV: production
       DATABASE_URL: postgresql://chastedesk:${POSTGRES_PASSWORD:-chastedesk}@postgres:5432/chastedesk

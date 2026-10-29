@@ -110,7 +110,7 @@ func ExecuteApprovedAction(ctx context.Context, pool *pgxpool.Pool, engine *retr
 		DryRun: data.DryRunVerifyFail,
 	}
 
-	tools := BuildBuiltinTools(pool, engine)
+	tools := BuildBuiltinTools(pool, engine, nil)
 	var tool *Tool
 	for i := range tools {
 		if tools[i].Declaration.ID == action.ToolID {

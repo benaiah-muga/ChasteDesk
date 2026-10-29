@@ -4,6 +4,20 @@ All notable changes to ChasteDesk. The format follows Keep a Changelog, and vers
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
+Production hardening across operations, identity, email, and browser security.
+
+### Security
+
+- Public sign-up is disabled in production, sign-up is rate limited, and case-insensitive email uniqueness is enforced.
+- Internal knowledge tool calls now respect configured knowledge scopes.
+- Inbound email rejects self-addressed mail, automatic submissions, and explicit SPF, DKIM, or DMARC failures.
+- SCIM last-owner checks use live membership state, SCIM roles stay synchronized, and SCIM tokens are revoked when their creator is demoted or removed.
+- The legacy sign-in path no longer creates a session when the 2FA lookup fails.
+- Environment secrets are scrubbed from structured logs.
+- Known `APP_SECRET` placeholders are rejected, non-local production origins require HTTPS, and Compose binds the web port to localhost.
+
 ### Added
 
 - A production React operator console at `/dashboard`, built with Vite, Tailwind CSS v4, and shadcn-style Radix primitives, with committed assets embedded in the Go binary.
@@ -20,6 +34,9 @@ All notable changes to ChasteDesk. The format follows Keep a Changelog, and vers
 - Optional TOTP two-factor authentication with QR setup, one-time recovery codes, challenge-based sign-in, and audited enable/disable flows.
 - SCIM 2.0 user provisioning with organization-scoped bearer tokens, activation invitations, role mapping, deactivation, and automatic session revocation.
 - Email channel with Postmark-compatible inbound webhooks, Message-ID deduplication, ticket threading, SMTP outbound replies, transactional invitation delivery, retries, and delivery settings.
+- Security hardening from the independent review: production sign-up is disabled, sign-up is rate limited, case-insensitive email uniqueness is enforced, internal knowledge tool calls respect policy scopes, inbound email rejects loops and explicit authentication failures, SCIM role checks use live membership state, SCIM tokens are revoked on owner demotion or removal, and the legacy 2FA path no longer fails open.
+- The worker no longer crashes when no embedding provider is configured; typed-nil query embedders are rejected.
+- The inbox attention badge now uses the accessible accent-strong contrast token.
 - Owner member administration, SLA page, and two-factor controls now appear in the settings and account surfaces.
 - The supplied ChasteDesk brand mark is now the in-app logo, browser favicon, and Apple touch icon. The supplied banner is the repository hero.
 - The README now features only the banner and the supplied inbox screenshot; the rest of the product captures live in the docs screenshot gallery.

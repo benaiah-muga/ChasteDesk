@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -110,7 +111,7 @@ func Respond(ctx context.Context, pool *pgxpool.Pool, appSecret string, engine *
 		queryEmbedding []float64
 		embeddingModel string
 	)
-	if embedder != nil {
+	if usableEmbedder(embedder) {
 		vectors, embedErr := embedder.Embed(ctx, []string{customerMessage})
 		if embedErr != nil {
 			slog.Warn("query embedding failed; continuing with full-text retrieval", "org", data.OrgID, "conversation", data.ConversationID, "error", embedErr)
@@ -251,7 +252,7 @@ func loadRecentConversations(ctx context.Context, pool *pgxpool.Pool, orgID, cus
 }
 
 func buildPolicyTools(pool *pgxpool.Pool, engine *retrieval.Engine, policy AgentPolicy) []Tool {
-	builtins := BuildBuiltinTools(pool, engine)
+	builtins := BuildBuiltinTools(pool, engine, policy.KnowledgeScopes)
 	tools := make([]Tool, 0, len(builtins))
 	for _, tool := range builtins {
 		mode := tool.Mode
@@ -324,4 +325,17 @@ func escalateWithoutProvider(ctx context.Context, pool *pgxpool.Pool, orgID, con
 	}
 	_, err = pool.Exec(ctx, "select pg_notify($1, $2)", "chastedesk", string(encoded))
 	return err
+}
+
+func usableEmbedder(embedder QueryEmbedder) bool {
+	if embedder == nil {
+		return false
+	}
+	value := reflect.ValueOf(embedder)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return !value.IsNil()
+	default:
+		return true
+	}
 }

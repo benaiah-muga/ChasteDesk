@@ -130,6 +130,32 @@ func TestEmailInboundAndOutbox(t *testing.T) {
 	if wrongRecipient.status != http.StatusUnprocessableEntity {
 		t.Fatalf("wrong mailbox must be rejected: %d %s", wrongRecipient.status, wrongRecipient.body)
 	}
+	selfSender := app.inboundEmail(secret, map[string]any{
+		"FromFull": map[string]any{"Email": "support@chastedesk.test"},
+		"ToFull":   []map[string]any{{"Email": "support@chastedesk.test"}},
+		"Subject":  "Loop", "TextBody": "loop", "MessageID": "<msg-loop@chastedesk.test>",
+	})
+	if selfSender.status != http.StatusUnprocessableEntity {
+		t.Fatalf("self-sender must be rejected: %d %s", selfSender.status, selfSender.body)
+	}
+	automatic := app.inboundEmail(secret, map[string]any{
+		"FromFull": map[string]any{"Email": "nina@email.test"},
+		"ToFull":   []map[string]any{{"Email": "support@chastedesk.test"}},
+		"Subject":  "Automatic", "TextBody": "automatic", "MessageID": "<msg-auto@email.test>",
+		"Headers": []map[string]any{{"Name": "Auto-Submitted", "Value": "auto-replied"}},
+	})
+	if automatic.status != http.StatusUnprocessableEntity {
+		t.Fatalf("auto-submitted mail must be rejected: %d %s", automatic.status, automatic.body)
+	}
+	authFailed := app.inboundEmail(secret, map[string]any{
+		"FromFull": map[string]any{"Email": "nina@email.test"},
+		"ToFull":   []map[string]any{{"Email": "support@chastedesk.test"}},
+		"Subject":  "Failed auth", "TextBody": "failed", "MessageID": "<msg-auth@email.test>",
+		"Headers": []map[string]any{{"Name": "Authentication-Results", "Value": "mx.example; spf=fail dkim=fail dmarc=fail"}},
+	})
+	if authFailed.status != http.StatusUnprocessableEntity {
+		t.Fatalf("failed authentication must be rejected: %d %s", authFailed.status, authFailed.body)
+	}
 }
 
 func contains(value, needle string) bool {

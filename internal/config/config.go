@@ -152,6 +152,17 @@ func Load() (Config, error) {
 	if len(cfg.AppSecret) < minSecretLen {
 		return Config{}, fmt.Errorf("config: APP_SECRET must be at least %d characters", minSecretLen)
 	}
+	if cfg.AppSecret == "change-me-to-a-long-random-string" {
+		return Config{}, errors.New("config: APP_SECRET must be replaced with a unique random value")
+	}
+	if cfg.AppEnv == "production" && strings.HasPrefix(cfg.AppURL, "http://") {
+		host := strings.TrimPrefix(cfg.AppURL, "http://")
+		host = strings.SplitN(host, "/", 2)[0]
+		host = strings.SplitN(host, ":", 2)[0]
+		if host != "localhost" && host != "127.0.0.1" && host != "[::1]" && host != "::1" {
+			return Config{}, errors.New("config: APP_URL must use HTTPS in production")
+		}
+	}
 	if cfg.MetricsToken != "" && len(cfg.MetricsToken) < 16 {
 		return Config{}, errors.New("config: METRICS_TOKEN must be at least 16 characters")
 	}

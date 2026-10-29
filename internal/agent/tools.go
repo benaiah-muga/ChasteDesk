@@ -66,7 +66,16 @@ func truncate300(content string) string {
 	return content
 }
 
-func BuildBuiltinTools(pool *pgxpool.Pool, engine *retrieval.Engine) []Tool {
+func BuildBuiltinTools(pool *pgxpool.Pool, engine *retrieval.Engine, scopes []string) []Tool {
+	searchScopes := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		if scope == "public" || scope == "internal" {
+			searchScopes = append(searchScopes, scope)
+		}
+	}
+	if len(searchScopes) == 0 {
+		searchScopes = []string{"public"}
+	}
 	return []Tool{
 		{
 			Declaration: model.ToolDeclaration{
@@ -88,7 +97,7 @@ func BuildBuiltinTools(pool *pgxpool.Pool, engine *retrieval.Engine) []Tool {
 					return ToolResult{OK: true, Data: map[string]any{"evidence": []any{}, "note": "no knowledge index available"}, SideEffects: []string{}}, nil
 				}
 				evidence, err := engine.Search(context.Background(), ctx.OrgID, retrieval.SearchQuery{
-					Text: query, Scopes: []string{"public", "internal"}, Limit: 5,
+					Text: query, Scopes: searchScopes, Limit: 5,
 				})
 				if err != nil {
 					return ToolResult{OK: false, Error: err.Error(), SideEffects: []string{}}, nil

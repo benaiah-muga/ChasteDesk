@@ -71,6 +71,20 @@ func (s *Server) handleEmailInbound(w http.ResponseWriter, r *http.Request) {
 		writeErrorBody(w, http.StatusBadRequest, "bad_request", "The inbound email sender is not valid.")
 		return
 	}
+	if strings.EqualFold(from, s.cfg.EmailInboundAddress) {
+		writeErrorBody(w, http.StatusUnprocessableEntity, "loop_detected", "The support mailbox cannot send mail to itself.")
+		return
+	}
+	autoSubmitted := inboundHeader(payload.Headers, "Auto-Submitted")
+	if autoSubmitted != "" && !strings.EqualFold(autoSubmitted, "no") {
+		writeErrorBody(w, http.StatusUnprocessableEntity, "auto_submitted", "Automatically submitted messages are not accepted.")
+		return
+	}
+	authResults := strings.ToLower(inboundHeader(payload.Headers, "Authentication-Results") + " " + inboundHeader(payload.Headers, "Received-SPF"))
+	if strings.Contains(authResults, "dmarc=fail") || strings.Contains(authResults, "spf=fail") || strings.Contains(authResults, "dkim=fail") {
+		writeErrorBody(w, http.StatusUnprocessableEntity, "authentication_failed", "The inbound email did not pass sender authentication.")
+		return
+	}
 	to := make([]string, 0, len(payload.ToFull)+1)
 	for _, recipient := range payload.ToFull {
 		if recipient.Email != "" {
@@ -153,4 +167,16 @@ func inboundReferences(headers []struct {
 		}
 	}
 	return inReplyTo, references
+}
+
+func inboundHeader(headers []struct {
+	Name  string `json:"Name"`
+	Value string `json:"Value"`
+}, name string) string {
+	for _, header := range headers {
+		if strings.EqualFold(header.Name, name) {
+			return strings.TrimSpace(header.Value)
+		}
+	}
+	return ""
 }

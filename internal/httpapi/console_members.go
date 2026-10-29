@@ -90,6 +90,16 @@ func (s *Server) handleConsoleMemberRole(w http.ResponseWriter, r *http.Request)
 		s.respondError(w, r, err)
 		return
 	}
+	if currentRole == "owner" && role != "owner" {
+		if err := s.repo.RevokeSCIMTokensForCreator(ctx, userID); err != nil {
+			s.respondError(w, r, err)
+			return
+		}
+	}
+	if err := s.repo.SyncSCIMRole(ctx, userID, role); err != nil {
+		s.respondError(w, r, err)
+		return
+	}
 	_ = s.repo.WriteAudit(ctx, db.AuditInput{
 		ActorType: db.ActorUser, ActorID: &sess.UserID, Type: "member.role_changed",
 		TargetType: "member", TargetID: &userID, Payload: map[string]any{"from": currentRole, "to": role, "sessionsRevoked": revoked},
@@ -129,6 +139,10 @@ func (s *Server) handleConsoleMemberRemove(w http.ResponseWriter, r *http.Reques
 	}
 	revoked, err := s.repo.DeleteSessionsForUser(ctx, userID)
 	if err != nil {
+		s.respondError(w, r, err)
+		return
+	}
+	if err := s.repo.RevokeSCIMTokensForCreator(ctx, userID); err != nil {
 		s.respondError(w, r, err)
 		return
 	}

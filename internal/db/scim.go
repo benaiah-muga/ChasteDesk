@@ -277,3 +277,17 @@ func (r *Repo) SCIMUserByExternalID(ctx RepoCtx, externalID string) (SCIMUserRow
 	}
 	return row, err
 }
+
+func (r *Repo) RevokeSCIMTokensForCreator(ctx RepoCtx, userID string) error {
+	_, err := r.pool.Exec(ctx.Ctx,
+		`update scim_tokens set revoked_at = now() where org_id = $1 and created_by = $2 and revoked_at is null`,
+		ctx.OrgID, userID)
+	return err
+}
+
+func (r *Repo) SyncSCIMRole(ctx RepoCtx, userID, role string) error {
+	_, err := r.pool.Exec(ctx.Ctx,
+		`update scim_users set role = $3, updated_at = now() where org_id = $1 and user_id = $2`,
+		ctx.OrgID, userID, role)
+	return err
+}

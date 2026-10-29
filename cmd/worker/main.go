@@ -35,7 +35,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	logger := logging.New(cfg.LogLevel)
+	logger := logging.New(cfg.LogLevel, cfg.AppSecret, cfg.SMTPPassword, cfg.EmbeddingAPIKey, cfg.AlertWebhookSecret, cfg.MetricsToken)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -59,11 +59,13 @@ func run() error {
 		}
 	}
 	var embedder *model.EmbeddingClient
+	var queryEmbedder agent.QueryEmbedder
 	if cfg.EmbeddingProvider != "" {
 		embedder, err = model.NewEmbeddingClient(cfg.EmbeddingProvider, cfg.EmbeddingBaseURL, cfg.EmbeddingAPIKey, cfg.EmbeddingModel)
 		if err != nil {
 			return err
 		}
+		queryEmbedder = embedder
 		logger.Info("embeddings enabled", "provider", cfg.EmbeddingProvider, "model", cfg.EmbeddingModel)
 	}
 	handlers := ingest.Handlers(ingest.Deps{Pool: pool, UploadsDir: cfg.UploadsDir, Embedder: embedder})
@@ -74,7 +76,7 @@ func run() error {
 	}
 	engine := retrieval.NewEngine(pool)
 	jobs.Work(ctx, "execute-action", cfg.WorkerConcurrency, withAlerts("execute-action", agent.ExecuteActionHandler(pool, engine)))
-	jobs.Work(ctx, "ai-respond", cfg.WorkerConcurrency, withAlerts("ai-respond", agent.RespondHandler(pool, cfg.AppSecret, engine, embedder)))
+	jobs.Work(ctx, "ai-respond", cfg.WorkerConcurrency, withAlerts("ai-respond", agent.RespondHandler(pool, cfg.AppSecret, engine, queryEmbedder)))
 	jobs.Work(ctx, "analytics-rollup", 1, withAlerts("analytics-rollup", analytics.Handler(pool)))
 	names = append(names, "execute-action", "ai-respond", "analytics-rollup")
 	go sla.StartMonitor(ctx, pool, notifier, logger)

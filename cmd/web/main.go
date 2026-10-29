@@ -30,7 +30,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	logger := logging.New(cfg.LogLevel)
+	logger := logging.New(cfg.LogLevel, cfg.AppSecret, cfg.SMTPPassword, cfg.EmbeddingAPIKey, cfg.AlertWebhookSecret, cfg.MetricsToken)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)

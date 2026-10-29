@@ -68,6 +68,8 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		{"unknown log level", map[string]string{"LOG_LEVEL": "verbose"}},
 		{"missing database url", map[string]string{"DATABASE_URL": ""}},
 		{"short app secret", map[string]string{"APP_SECRET": "too-short"}},
+		{"placeholder app secret", map[string]string{"APP_SECRET": "change-me-to-a-long-random-string"}},
+		{"insecure production origin", map[string]string{"APP_ENV": "production", "APP_URL": "http://desk.example.com"}},
 		{"smtp without from", map[string]string{"SMTP_HOST": "smtp.example.com"}},
 		{"smtp invalid from", map[string]string{"SMTP_HOST": "smtp.example.com", "SMTP_FROM": "not-an-email"}},
 		{"smtp invalid tls", map[string]string{"SMTP_HOST": "smtp.example.com", "SMTP_FROM": "support@example.com", "SMTP_TLS": "ssl"}},
